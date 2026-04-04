@@ -27,3 +27,22 @@ Filtered: 20 off-topic pairs (SSH setup, tooling noise)
 Deduplicated: 10 near-duplicate pairs across phases
 Mean response length: 128 words
 Build script: phase9/scripts/build_dataset.py
+
+## Rank Sensitivity Experiment Results
+
+| Rank | Trainable Params | Final Loss | Training Time |
+|------|-----------------|------------|---------------|
+| r=4  | 10,485,760      | 1.8055     | 312s          |
+| r=8  | 20,971,520      | 1.6771     | 308s          |
+| r=16 | 41,943,040      | 1.5330     | 310s          |
+| r=32 | 83,886,080      | 1.3784     | 309s          |
+| r=64 | 167,772,160     | 1.1982     | 312s          |
+
+Key findings:
+- Loss improves consistently with rank -- no clear plateau on this dataset
+- Training time is rank-invariant -- adapter params are negligible vs. frozen base
+- Practical sweet spot: r=32 for best loss/parameter tradeoff
+- r=64 continues improving -- suggests the behavioral target has higher 
+  intrinsic dimensionality than typical instruction-following tasks
+- Dataset size (550 pairs, narrow technical domain) likely drives the 
+  continued improvement at high rank

@@ -1,0 +1,27 @@
+{
+  "4": {
+    "final_loss": 1.8055324297325284,
+    "training_time_seconds": 312,
+    "trainable_params": 10485760
+  },
+  "8": {
+    "final_loss": 1.677090093201282,
+    "training_time_seconds": 308,
+    "trainable_params": 20971520
+  },
+  "32": {
+    "final_loss": 1.378416802368912,
+    "training_time_seconds": 309,
+    "trainable_params": 83886080
+  },
+  "64": {
+    "final_loss": 1.1982027116943808,
+    "training_time_seconds": 312,
+    "trainable_params": 167772160
+  },
+  "16": {
+    "final_loss": 1.533,
+    "training_time_seconds": 310,
+    "trainable_params": 41943040
+  }
+}
