@@ -37,6 +37,44 @@ also an SFT run. What we ran in Phase 9 was all three simultaneously.
 
 ---
 
+## Working Stack — Verified Configuration
+
+Tested on RunPod A100 SXM4 80GB, April 2026.
+
+| Package | Version | Notes |
+|---------|---------|-------|
+| CUDA | 12.1.1 | Template: runpod/pytorch:2.2.0-py3.10-cuda12.1.1-devel-ubuntu22.04 |
+| Python | 3.10 | |
+| torch | 2.4.0+cu121 | Must pin to cu121 -- bitsandbytes pulls cu130 by default |
+| bitsandbytes | 0.46.1 | 0.43.1 too old for transformers 4.44+, 0.49.2 requires cu130 |
+| transformers | 4.44.0 | 5.x breaks with torch 2.4 (set_submodule not available) |
+| trl | 0.9.6 | 1.0.0 requires transformers>=4.56.2, incompatible with 4.44.0 |
+| peft | 0.18.1 | |
+| accelerate | 0.33.0 | 1.x breaks NF4 quantization dispatch with transformers 4.44 |
+| datasets | 4.8.4 | |
+
+Install sequence that works:
+```bash
+pip install torch==2.4.0 --index-url https://download.pytorch.org/whl/cu121
+pip install bitsandbytes==0.46.1
+pip install transformers==4.44.0
+pip install trl==0.9.6
+pip install peft==0.18.1 accelerate==0.33.0 datasets
+```
+
+Key failure modes encountered:
+- bitsandbytes default install pulls torch 2.11+cu130 -- requires libnvJitLink.so.13 
+  which does not exist on CUDA 12.1 systems. Always pin torch first.
+- transformers 5.x calls set_submodule() which does not exist in torch 2.4. 
+  Pin to 4.44.0.
+- trl 1.0.0 requires transformers>=4.56.2. Pin to 0.9.6.
+- accelerate 1.x dispatch_model breaks NF4 quantization with transformers 4.44. 
+  Pin to 0.33.0.
+- device_map="auto" triggers a .to() call that bitsandbytes rejects on 4-bit models. 
+  Use device_map={"": 0} instead.
+
+---
+
 ## Exercise 1: Building the Training Dataset
 
 ### Theory and Relevance to Agentic AI Infrastructure
