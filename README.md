@@ -1,4 +1,4 @@
-# Infrastructure for Agentic AI
+# Pt II: Infrastructure for Agentic AI
 ---
 [dagc.ai](https://www.dagc.ai) | [LinkedIn](https://www.linkedin.com/in/danielaleguerrero/) | [Part I: AI Infrastructure Learning](https://github.com/dagc-ai/ai-infra-learning)
 ---
