@@ -10,6 +10,33 @@ pipeline on domain-specific data generated from the curriculum itself.
 
 ---
 
+## How SFT, LoRA, and QLoRA Relate
+
+These three terms are often listed as alternatives but they are actually layers 
+that stack on top of each other.
+
+**SFT (Supervised Fine-Tuning)** is the training objective -- update a model's 
+weights on labeled (instruction, response) pairs so it learns to produce the 
+desired behavior. It says nothing about how many parameters you update or how 
+you manage memory. It just means: train on examples of the behavior you want.
+
+**LoRA** is a parameter efficiency technique applied on top of SFT. Instead of 
+updating all model weights during SFT, freeze the base weights and only update 
+two small low-rank matrices (B and A) per targeted layer. The training objective 
+is still SFT -- you're still training on (instruction, response) pairs. LoRA 
+changes how many parameters participate in the update, not what you're optimizing 
+for.
+
+**QLoRA** adds one more layer: quantize the frozen base weights to NF4 (4-bit) 
+before applying LoRA. The training objective is still SFT. The parameter efficiency 
+technique is still LoRA. QLoRA just reduces the memory footprint of the frozen base 
+model so the whole thing fits on a single GPU.
+
+The relationship: QLoRA ⊃ LoRA ⊃ SFT. Every QLoRA run is also a LoRA run and 
+also an SFT run. What we ran in Phase 9 was all three simultaneously.
+
+---
+
 ## Exercise 1: Building the Training Dataset
 
 ### Theory and Relevance to Agentic AI Infrastructure
