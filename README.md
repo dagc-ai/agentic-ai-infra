@@ -18,14 +18,14 @@ The capstone is a fully autonomous content engine: four specialized agents orche
 | Phase | Topic | Status | Key Result |
 |-------|-------|--------|------------|
 | 8 | Modern LLM Architecture for Agentic Workloads | ✅ Complete | GQA reduces KV cache 4x vs. MHA — at 128K context, batch=10: 172GB (GQA) vs. 687GB (MHA). MoE routing measured as uniform across all domain types (cosine similarity > 0.996 between code/math/language/tool-call). |
-| 9 | Fine-Tuning: SFT, LoRA, QLoRA | ⬜ Queued | |
-| 10 | Alignment: RLHF, DPO, Reward Modeling | ⬜ Queued | |
-| 11 | Evals: Measuring Model Behavior | ⬜ Queued | |
-| 12 | RAG + Storage Architecture | ⬜ Queued | |
-| 13 | Tool Use and the ReAct Pattern | ⬜ Queued | |
-| 14 | Agent Frameworks: LangGraph, OpenClaw, CrewAI | ⬜ Queued | |
-| 15 | Production Agentic Infrastructure | ⬜ Queued | |
-| 16 | Capstone: AI Learning Hub Content Engine | ⬜ Queued | |
+| 9 | Fine-Tuning: SFT, LoRA, QLoRA | ✅ Complete | QLoRA fine-tuned Llama 3.1 8B on 550 domain Q&A pairs in 5m10s on one A100 80GB, adapter 161MB (0.52% of params), final loss 1.533. Rank experiment r=4 to r=64: loss improves continuously (1.81 to 1.20), training time rank-invariant at ~310s. Fine-tuning corrected concrete hallucinations; introduced new failure mode from Socratic training data format. |
+| 10 | Alignment: RLHF, DPO, Reward Modeling | ⬜ Queued | Reward model trained on preference pairs, PPO-based RLHF mechanics, DPO loss function and why it displaced PPO in practice, SFT vs. DPO qualitative comparison on 20 test prompts |
+| 11 | Evals: Measuring Model Behavior | ⬜ Queued | LLM-as-judge eval harness built from scratch, 50-prompt domain-specific test set, calibrated rubric for AI infrastructure content quality — becomes the Editor agent's decision function in Phase 16 |
+| 12 | RAG + Storage Architecture | ⬜ Queued | RAG pipeline built from scratch (no framework), three-way storage benchmark: Chroma vs. pgvector vs. CockroachDB under 4-agent concurrent write load, HyDE and reranking implemented and measured against baseline |
+| 13 | Tool Use and the ReAct Pattern | ⬜ Queued | Raw function calling with the Anthropic API, explicit ReAct thought/action/observation loop, stateful 5-step research agent, failure modes documented when tools fail or the model loops |
+| 14 | Agent Frameworks: LangGraph, OpenClaw, CrewAI | ⬜ Queued | LangGraph research agent with checkpointing, OpenClaw source dissection and custom content engine skill, CrewAI multi-agent content crew dry run, framework tradeoff comparison |
+| 15 | Production Agentic Infrastructure | ⬜ Queued | Full agent tracing in LangSmith/Langfuse, cost model per content engine run, retry/fallback/circuit breaker patterns, concurrent agent state load test — no lost updates under 4-agent write contention |
+| 16 | Capstone: AI Learning Hub Content Engine | ⬜ Queued | Four agents (Researcher, Writer, Editor, Publisher) orchestrated by OpenClaw, CockroachDB + pgvector as shared state store, fully autonomous post to dagc.ai from a single Telegram message |
 
 ---
 
@@ -142,9 +142,110 @@ Context length is not a free parameter — it is a memory multiplier. Every toke
 | 8 | MBP M5 Max 128GB (inspection + config) / A100 SXM4 80GB (Mixtral routing) | Local / RunPod | $1.52/hr |
 
 ---
-
+ 
+## Phase 9 — Fine-Tuning: SFT, LoRA, QLoRA
+ 
+**Hardware:** A100 SXM4 80GB, CUDA 12.4, PyTorch 2.4.0, transformers 4.44.0, trl 0.9.6, bitsandbytes 0.46.1, RunPod
+**Model:** Llama 3.1 8B Instruct (base), fine-tuned on 550 AI infrastructure Q&A pairs generated from Phases 1-6 curriculum
+**Stack note:** bitsandbytes version must be pinned precisely — mismatches produce cryptic runtime errors, not clear warnings. Pin the full stack before running.
+ 
+### Key Results
+ 
+**Exercise 1 — Dataset Construction**
+ 
+589 raw Q&A pairs extracted from 6 curriculum threads (Phases 1-6), filtered and validated to 550 training pairs via a reproducible build pipeline. Failure modes encountered and solved: JSON encoding failures from unescaped quotes inside code examples, off-topic pairs from setup discussions, meta-references that broke pair self-containment. Minimum response length enforced at 75 words to filter shallow Q&A that adds noise without signal.
+ 
+| Metric | Value |
+|--------|-------|
+| Raw pairs extracted | 589 |
+| Pairs after filtering | 550 |
+| Filter rate | 6.6% |
+| Source threads | 6 (Phases 1-6) |
+| Min response length enforced | 75 words |
+ 
+The data preparation pipeline is the same pipeline production teams run at 100,000 pairs — ingestion, generation, quality filtering, deduplication, versioning. The difference is orchestration and scale, not concept.
+ 
+**Exercise 2 — QLoRA Fine-Tuning End to End**
+ 
+Fine-tuned Llama 3.1 8B Instruct using QLoRA (NF4 base + BF16 adapters) at rank=16, targeting all attention projection and FFN layers. Training ran on a single A100 80GB.
+ 
+| Metric | Value |
+|--------|-------|
+| Training time | 5m 10s |
+| Epochs | 3 |
+| Steps | 102 |
+| Loss at step 1 | 2.51 |
+| Final training loss | 1.533 |
+| Adapter size | 161MB |
+| Trainable parameters | 41,943,040 (0.52% of total) |
+| Base model VRAM (NF4) | 19GB |
+| Total VRAM utilization | ~23% of 80GB |
+ 
+The base model consumes 19GB in NF4. The adapter and optimizer state add ~2GB. 80GB A100 at 23% utilization — enough headroom to 4x the dataset size or move to a 70B base without changing hardware. Adapter saved at 161MB against a 16.1GB base model: one base model in VRAM, many adapters hot-swapped at request time is the production serving pattern.
+ 
+**Exercise 3 — Rank Sensitivity Experiment**
+ 
+Five adapters trained at r=4 through r=64 on identical data with identical hyperparameters. Key finding: loss improves continuously with rank on this dataset, training time is rank-invariant.
+ 
+| Rank | Trainable Params | Final Loss | Training Time |
+|------|-----------------|------------|---------------|
+| r=4  | 10,485,760 | 1.8055 | 312s |
+| r=8  | 20,971,520 | 1.6771 | 308s |
+| r=16 | 41,943,040 | 1.5330 | 310s |
+| r=32 | 83,886,080 | 1.3784 | 309s |
+| r=64 | 167,772,160 | 1.1982 | 312s |
+ 
+The expected plateau at r=16 did not materialize. Technical AI infrastructure content — specific numbers, reasoning patterns, hardware vocabulary — has higher intrinsic dimensionality than simple instruction-following tasks. Practical sweet spot for this dataset: r=32, best loss-to-parameter tradeoff before adapter size doubles again with marginal return. Training time is rank-invariant because adapter parameters are negligible relative to the frozen base model — doubling rank costs nothing in wall clock time, only in adapter file size.
+ 
+**Exercise 4 — Qualitative Before/After Comparison**
+ 
+10 AI infrastructure prompts run against base Llama 3.1 8B and against the r=32 fine-tuned adapter. Results documented in before-after-comparison.md.
+ 
+Concrete hallucinations corrected by fine-tuning:
+- Base model described the roofline model as a psychology framework by Daniel Kahneman. Fine-tuned model correctly described it as a GPU performance analysis tool with arithmetic intensity on one axis and compute/bandwidth bounds on the other.
+- Base model described Tenstorrent as a Chinese chip designer. Fine-tuned model gave a conceptually accurate answer about the SRAM-centric architectural bet.
+ 
+Fine-tuning also introduced a new failure mode: the fine-tuned model generates follow-up questions instead of answers on a subset of prompts. Root cause: some training pairs used a Socratic format. The model learned to reproduce the format, not just the content. A training data artifact, not a model failure.
+ 
+Topics with thin training data coverage (Chinchilla scaling laws) remained weak — fine-tuning does not conjure knowledge that was not in the training data. For factual grounding on new material, RAG is the right tool (Phase 12).
+ 
+### What This Means
+ 
+SFT, LoRA, and QLoRA are not alternatives — they are layers that stack. SFT is the training objective. LoRA is the parameter efficiency technique applied on top. QLoRA adds 4-bit quantization of the frozen base weights on top of that. Every QLoRA run is also a LoRA run and also an SFT run. Conflating them is the sign of someone who has read about fine-tuning without running it.
+ 
+The rank experiment overturned the default assumption. r=16 is reasonable for simple tasks like format compliance or persona adoption. For technically dense domains where the behavioral target has high intrinsic dimensionality, it undershoots. Run the experiment — the cost is the same regardless of rank.
+ 
+### Key Insight
+ 
+The data pipeline is the actual competitive moat in enterprise fine-tuning. A single A100 80GB at $1.49/hr running a QLoRA job that costs under $0.15 and completes in five minutes is not a differentiator — it is table stakes. The curated, domain-specific, high-quality training dataset that took months and domain expertise to build is what competitors cannot replicate. A customer with 10 years of support tickets, analyst reports, or expert internal documentation has latent training signal that no foundation model provider can match. The question that wins the enterprise fine-tuning conversation is not "which model?" — it is "what does your data pipeline look like?"
+ 
+---
+ 
+## Notes
+ 
+- [Modern LLM Architecture: nanoGPT vs. Llama 3.1 8B](notes/modern-llm-architecture.md) — Phase 8 complete: architecture comparison table (all numbers from loaded model), KV cache arithmetic across MHA vs. GQA vs. MQA, MoE routing analysis v1 and v2
+- [Fine-Tuning Mental Model: SFT, LoRA, QLoRA](notes/fine-tuning-mental-model.md) — Phase 9 complete: how SFT/LoRA/QLoRA stack as layers not alternatives, QLoRA end-to-end on Llama 3.1 8B, rank sensitivity experiment r=4 to r=64 (no plateau on technical domain data), qualitative hallucination correction and new failure mode from Socratic training format
+- [Alignment Techniques: RLHF, DPO, Reward Modeling](notes/alignment-techniques.md) — Phase 10: the alignment gap, reward model training on preference pairs, PPO-based RLHF mechanics and why it's unstable at scale, DPO loss function and why it displaced PPO, Constitutional AI
+- [Evals: Measuring Model Behavior](notes/evals-mental-model.md) — Phase 11: why benchmarks are unreliable proxies for task performance, the contamination problem, LLM-as-judge methodology and calibration, building domain-specific eval rubrics, RAGAS for RAG pipelines
+- [Storage Architecture for Agentic AI](notes/storage-architecture-decision.md) — Phase 12: embeddings from first principles, four types of agent memory and the right storage backend for each, why dedicated vector databases are the wrong default for production agents, pgvector hybrid queries, CockroachDB consistency guarantees under concurrent agent write load
+- [Tool Use and the ReAct Pattern](notes/react-pattern.md) — Phase 13: raw function calling with the Anthropic API, the ReAct thought/action/observation loop, explicit state management across multi-turn agent workflows, failure modes when tools fail or the model loops
+- [Agent Framework Comparison: LangGraph, OpenClaw, CrewAI](notes/agent-framework-comparison.md) — Phase 14: agents as state machines (LangGraph), OpenClaw architecture dissection (persistent memory, skills system, context management), CrewAI multi-agent orchestration, when to choose each framework
+- [Production Agentic Infrastructure](notes/production-agentic-infra.md) — Phase 15: full agent tracing with LangSmith/Langfuse, cost modeling per agent run, retry/fallback/circuit breaker patterns, concurrent agent state under contention, prompt injection defense
+- [Content Engine Architecture](notes/content-engine-architecture.md) — Phase 16 capstone: every component, every binding constraint, every agent handoff — the synthesis document for Part II
+ 
+---
+ 
+## Hardware
+ 
+| Phase | Hardware | Provider | Cost |
+|-------|----------|----------|------|
+| 8 | MBP M5 Max 128GB (inspection + config) / A100 SXM4 80GB (Mixtral routing) | Local / RunPod | — |
+| 9 | A100 SXM4 80GB | RunPod | ~$0.15 (5m10s training run) |
+ 
+---
+ 
 ## Companion Repo
-
+ 
 Part I — [github.com/dagc-ai/ai-infra-learning](https://github.com/dagc-ai/ai-infra-learning)
-
+ 
 Seven phases. Silicon to transformer. CUDA kernels, Ring AllReduce from scratch, vLLM on A100s, quantization benchmarks, Groq vs. A100 head-to-head, and a 30M parameter GPT trained from scratch with deliberate failure modes engineered and documented. The foundation this curriculum builds on.
