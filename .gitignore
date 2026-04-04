@@ -3,3 +3,5 @@
 **/.DS_Store
 .DS_Store
 **/.DS_Store
+phase9/lora-adapter-r16/adapter_model.safetensors
+phase9/lora-adapter-r16/tokenizer.json
