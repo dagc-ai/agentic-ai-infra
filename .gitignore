@@ -5,3 +5,15 @@
 **/.DS_Store
 phase9/lora-adapter-r16/adapter_model.safetensors
 phase9/lora-adapter-r16/tokenizer.json
+
+# Credentials
+.env
+*.key
+*.pem
+secrets.txt
+
+# Phase 10 large model files
+phase10/reward-model/model.safetensors
+phase10/reward-model/tokenizer.json
+phase10/dpo-adapter/adapter_model.safetensors
+phase10/dpo-adapter/tokenizer.json
