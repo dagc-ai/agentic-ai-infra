@@ -228,7 +228,7 @@ thing.
 GPU architecture scored best across all three variants (BASE 2.857,
 SFT 3.071, DPO 3.107). Inference serving scored worst for BASE (2.036).
 The pattern tracks training data coverage: GPU architecture has been
-written about extensively since 2012. PagedAttention, NF4 quantization,
+written about exively since 2012. PagedAttention, NF4 quantization,
 and DPO were published in 2022-2023 with far less derivative content
 in training corpora.
 
@@ -336,14 +336,6 @@ Editor agent's decision function in our autonomous content pipeline."
 
 The second conversation requires a peer-level technical response.
 The first does not.
-
-For Tenstorrent specifically: the confabulation finding connects
-directly to the case for RAG-grounded inference. A model that
-consistently gets NVLink bandwidth numbers wrong in standalone
-generation can be grounded with a retrieval layer that pulls current
-spec sheets at inference time. That is an infrastructure argument
-for the hardware they are selling, made from first-principles
-measurement rather than vendor claims.
 
 For inference platform companies (Together AI, Fireworks, Modal):
 the throughput delta between base and adapter variants (39% penalty)
