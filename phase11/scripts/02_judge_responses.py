@@ -6,6 +6,11 @@ Output: phase11/data/results/judge_scores.json
 Usage:
     export ANTHROPIC_API_KEY="your-key"
     python phase11/scripts/02_judge_responses.py
+
+Rubric version: 1.1
+Change from v1.0: tightened technical_accuracy score-2 anchor to explicitly
+catch wrong definitions/specs wrapped in otherwise correct explanations.
+Calibration finding: judge had systematic +bias on 17/20 responses at v1.0.
 """
 
 import os
@@ -21,8 +26,6 @@ OUTPUT_PATH     = "phase11/data/results/judge_scores.json"
 JUDGE_MODEL     = "claude-sonnet-4-20250514"
 MAX_TOKENS      = 1024
 
-# Rate limiting -- Anthropic API has per-minute limits
-# 150 calls at 0.5s delay = ~75 seconds minimum
 REQUEST_DELAY_SEC = 0.5
 
 # ── Credentials ───────────────────────────────────────────────────────────────
@@ -35,7 +38,7 @@ if not ANTHROPIC_API_KEY:
 
 client = Anthropic()
 
-# ── Rubric ────────────────────────────────────────────────────────────────────
+# ── Rubric v1.1 ───────────────────────────────────────────────────────────────
 
 RUBRIC = """
 You are evaluating technical AI infrastructure content on four dimensions.
@@ -44,9 +47,13 @@ Score each dimension 1-5 using the anchors below.
 DIMENSION 1: Technical Accuracy
 Does the response state things that are actually true?
 1 = Contains specific false claims: wrong numbers, wrong mechanisms, wrong causal relationships
-2 = Contains minor inaccuracies or oversimplifications that would mislead a practitioner
-3 = Mostly accurate with one or two imprecise claims that are not outright wrong
-4 = Accurate throughout with no identifiable false claims
+2 = Contains at least one clearly wrong specific claim (wrong spec, wrong definition, wrong formula)
+    even if the surrounding explanation is mostly correct. Example: calling NF4 'Neuron Format 4'
+    instead of 'Normal Float 4', or stating register file size as '32-64 bytes' instead of ~256KB per SM.
+    A wrong definition is a wrong claim regardless of how well the rest of the response reads.
+3 = No outright false claims but contains vague or unverifiable specifics that cannot be confirmed
+    against a primary source
+4 = Accurate throughout with no identifiable false or unverifiable claims
 5 = Accurate and precise -- every specific claim could be verified against a primary source
 
 DIMENSION 2: Calibration
@@ -78,6 +85,8 @@ IMPORTANT INSTRUCTIONS:
 - Do NOT reward confident delivery. Confident hallucination scores 1 on both accuracy and calibration.
 - Do NOT penalize appropriate hedging. Saying "this depends on implementation" when it genuinely
   does is a sign of good calibration, not weakness.
+- A response that gets the core definition wrong scores 2 or below on technical_accuracy regardless
+  of how well-structured or fluent the rest of the response is.
 - Score what is actually in the response, not what you would have written.
 """
 
@@ -116,10 +125,6 @@ Return only the JSON object. No preamble, no explanation outside the JSON.
 # ── Judge a single response ───────────────────────────────────────────────────
 
 def judge_response(prompt_text, response_text, retries=3):
-    """
-    Call Claude Sonnet to score a single response.
-    Returns parsed score dict or None on failure.
-    """
     judge_prompt = JUDGE_PROMPT_TEMPLATE.format(
         rubric=RUBRIC,
         prompt=prompt_text,
@@ -135,7 +140,6 @@ def judge_response(prompt_text, response_text, retries=3):
             )
             raw = result.content[0].text.strip()
 
-            # Strip markdown fences if present
             if raw.startswith("```"):
                 raw = raw.split("```")[1]
                 if raw.startswith("json"):
@@ -144,7 +148,6 @@ def judge_response(prompt_text, response_text, retries=3):
 
             parsed = json.loads(raw)
 
-            # Validate expected keys are present
             assert "scores" in parsed
             assert "mean_score" in parsed
             assert "reasoning" in parsed
@@ -156,7 +159,6 @@ def judge_response(prompt_text, response_text, retries=3):
                 assert dim in parsed["scores"], f"Missing dimension: {dim}"
                 assert dim in parsed["reasoning"], f"Missing reasoning: {dim}"
 
-            # Recompute mean to guard against judge arithmetic errors
             scores = parsed["scores"]
             parsed["mean_score"] = round(
                 sum(scores.values()) / len(scores), 3
@@ -177,12 +179,12 @@ def judge_response(prompt_text, response_text, retries=3):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    # Load responses
     with open(RESPONSES_PATH) as f:
         data = json.load(f)
     responses = data["results"]
     print(f"Loaded {len(responses)} responses from {RESPONSES_PATH}")
     print(f"Judge model: {JUDGE_MODEL}")
+    print(f"Rubric version: 1.1")
     print(f"Estimated time: ~{len(responses) * REQUEST_DELAY_SEC / 60:.1f} minutes\n")
 
     all_scored = []
@@ -191,7 +193,6 @@ def main():
     for i, r in enumerate(responses):
         variant    = r["variant"]
         prompt_id  = r["prompt_id"]
-        category   = r["category"]
 
         print(
             f"[{i+1:03d}/{len(responses)}] {variant:4s} | {prompt_id:12s}",
@@ -214,15 +215,14 @@ def main():
 
         all_scored.append({
             **r,
-            "judge_scores":   scores["scores"],
-            "judge_mean":     scores["mean_score"],
+            "judge_scores":    scores["scores"],
+            "judge_mean":      scores["mean_score"],
             "judge_reasoning": scores["reasoning"],
-            "judge_flag":     scores.get("flag", None),
+            "judge_flag":      scores.get("flag", None),
         })
 
         time.sleep(REQUEST_DELAY_SEC)
 
-    # ── Aggregate stats ───────────────────────────────────────────────────────
     from collections import defaultdict
 
     by_variant     = defaultdict(list)
@@ -232,8 +232,8 @@ def main():
     for r in all_scored:
         if r.get("judge_scores") is None:
             continue
-        v   = r["variant"]
-        cat = r["category"]
+        v    = r["variant"]
+        cat  = r["category"]
         mean = r["judge_mean"]
         by_variant[v].append(mean)
         by_variant_cat[v][cat].append(mean)
@@ -246,18 +246,18 @@ def main():
     for variant, scores_list in sorted(by_variant.items()):
         avg = sum(scores_list) / len(scores_list)
         summary[variant] = {
-            "mean_score":    round(avg, 3),
-            "n_scored":      len(scores_list),
-            "by_category":   {
+            "mean_score":  round(avg, 3),
+            "n_scored":    len(scores_list),
+            "by_category": {
                 cat: round(sum(s)/len(s), 3)
                 for cat, s in sorted(by_variant_cat[variant].items())
             }
         }
 
-    # ── Save output ───────────────────────────────────────────────────────────
     output = {
-        "phase":       "11",
-        "judge_model": JUDGE_MODEL,
+        "phase":             "11",
+        "rubric_version":    "1.1",
+        "judge_model":       JUDGE_MODEL,
         "rubric_dimensions": [
             "technical_accuracy",
             "calibration",
@@ -274,9 +274,8 @@ def main():
     with open(OUTPUT_PATH, "w") as f:
         json.dump(output, f, indent=2)
 
-    # ── Print summary ─────────────────────────────────────────────────────────
     print("\n" + "="*60)
-    print("JUDGE SUMMARY")
+    print("JUDGE SUMMARY (rubric v1.1)")
     print("="*60)
     for variant, stats in sorted(summary.items()):
         print(f"\n{variant}: mean={stats['mean_score']:.3f} (n={stats['n_scored']})")
@@ -289,9 +288,7 @@ def main():
             print(f"  {flag}: {count}")
 
     if failed:
-        print(f"\nFAILED: {len(failed)} responses could not be scored")
-        for f in failed:
-            print(f"  {f['variant']} | {f['prompt_id']}")
+        print(f"\nFAILED: {len(failed)} responses")
 
     print(f"\nSaved to {OUTPUT_PATH}")
 
