@@ -1,0 +1,82 @@
+[
+  {
+    "prompt_id": "gpu_006",
+    "variant": "SFT"
+  },
+  {
+    "prompt_id": "gpu_003",
+    "variant": "DPO"
+  },
+  {
+    "prompt_id": "arch_007",
+    "variant": "SFT"
+  },
+  {
+    "prompt_id": "gpu_007",
+    "variant": "SFT"
+  },
+  {
+    "prompt_id": "gpu_002",
+    "variant": "DPO"
+  },
+  {
+    "prompt_id": "kernel_001",
+    "variant": "BASE"
+  },
+  {
+    "prompt_id": "ft_002",
+    "variant": "SFT"
+  },
+  {
+    "prompt_id": "dist_001",
+    "variant": "BASE"
+  },
+  {
+    "prompt_id": "gpu_006",
+    "variant": "DPO"
+  },
+  {
+    "prompt_id": "gpu_002",
+    "variant": "BASE"
+  },
+  {
+    "prompt_id": "dist_001",
+    "variant": "DPO"
+  },
+  {
+    "prompt_id": "dist_002",
+    "variant": "BASE"
+  },
+  {
+    "prompt_id": "agent_001",
+    "variant": "SFT"
+  },
+  {
+    "prompt_id": "agent_005",
+    "variant": "SFT"
+  },
+  {
+    "prompt_id": "dist_004",
+    "variant": "BASE"
+  },
+  {
+    "prompt_id": "inf_007",
+    "variant": "SFT"
+  },
+  {
+    "prompt_id": "kernel_002",
+    "variant": "BASE"
+  },
+  {
+    "prompt_id": "kernel_007",
+    "variant": "DPO"
+  },
+  {
+    "prompt_id": "ft_005",
+    "variant": "BASE"
+  },
+  {
+    "prompt_id": "arch_005",
+    "variant": "DPO"
+  }
+]

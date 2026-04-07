@@ -1,0 +1,477 @@
+{
+  "phase": "11",
+  "n_paired": 20,
+  "n_unmatched": 0,
+  "dimension_results": {
+    "technical_accuracy": {
+      "pearson_r": 0.808,
+      "mae": 0.4,
+      "status": "PASS (r>=0.75)"
+    },
+    "calibration": {
+      "pearson_r": 0.829,
+      "mae": 0.4,
+      "status": "PASS (r>=0.75)"
+    },
+    "mechanistic_depth": {
+      "pearson_r": 0.72,
+      "mae": 0.55,
+      "status": "NEEDS REVIEW"
+    },
+    "audience_calibration": {
+      "pearson_r": 0.811,
+      "mae": 0.9,
+      "status": "PASS (r>=0.75)"
+    }
+  },
+  "overall": {
+    "pearson_r": 0.861,
+    "mae": 0.562,
+    "status": "PASS (r>=0.75)"
+  },
+  "bias": {
+    "judge_higher": 17,
+    "human_higher": 3,
+    "equal": 0
+  },
+  "large_divergences": [
+    {
+      "response_num": 4,
+      "prompt_id": "gpu_007",
+      "variant": "SFT",
+      "manual_mean": 3.0,
+      "judge_mean": 4.0,
+      "delta": -1.0,
+      "notes": "Warp slot range and H100 shared memory (228KB) correct. Register pressure ceiling correctly explained. Claim that 'ncu above 90% = saturated / cannot accept warps' is misleading -- high occupancy is the goal. Causal chain otherwise solid."
+    },
+    {
+      "response_num": 10,
+      "prompt_id": "gpu_002",
+      "variant": "BASE",
+      "manual_mean": 1.5,
+      "judge_mean": 2.5,
+      "delta": -1.0,
+      "notes": "Registers listed as '32-64 bytes' -- wrong; register file is ~256KB per SM total. L2 cache described as '256KB-1MB' -- H100 L2 is 50MB, A100 is 40MB. Numbers are off by 2-3 orders of magnitude in some cases. Generic textbook bullet format."
+    },
+    {
+      "response_num": 12,
+      "prompt_id": "dist_002",
+      "variant": "BASE",
+      "manual_mean": 2.75,
+      "judge_mean": 3.75,
+      "delta": -1.0,
+      "notes": "Data parallelism explanation correct and has a concrete example. Tensor and pipeline parallelism are cut off / incomplete. AllReduce correctly invoked. Generic markdown structure but concrete where it exists."
+    },
+    {
+      "response_num": 18,
+      "prompt_id": "kernel_007",
+      "variant": "DPO",
+      "manual_mean": 1.75,
+      "judge_mean": 2.75,
+      "delta": -1.0,
+      "notes": "NF4 = Normal Float 4, not 'Neuron Format 4'. Actual mechanism: quantile-based mapping places INT4 levels where weights actually concentrate (matching normal distribution), not a learned per-tensor scaling factor. 'Calibration pass takes weeks' is fabricated."
+    }
+  ],
+  "paired_scores": [
+    {
+      "response_num": 1,
+      "prompt_id": "gpu_006",
+      "variant": "SFT",
+      "manual": {
+        "technical_accuracy": 2,
+        "calibration": 2,
+        "mechanistic_depth": 3,
+        "audience_calibration": 3
+      },
+      "judge": {
+        "technical_accuracy": 2,
+        "calibration": 2,
+        "mechanistic_depth": 3,
+        "audience_calibration": 4
+      },
+      "manual_mean": 2.5,
+      "judge_mean": 2.75,
+      "notes": "Core coalescing mechanism correct but '128 bytes = 64 floats' is wrong (32 floats). Injects A100 benchmark numbers (924 GB/s, 228 GB/s) without sourcing. Response is cut off."
+    },
+    {
+      "response_num": 2,
+      "prompt_id": "gpu_003",
+      "variant": "DPO",
+      "manual": {
+        "technical_accuracy": 4,
+        "calibration": 4,
+        "mechanistic_depth": 4,
+        "audience_calibration": 4
+      },
+      "judge": {
+        "technical_accuracy": 4,
+        "calibration": 4,
+        "mechanistic_depth": 4,
+        "audience_calibration": 5
+      },
+      "manual_mean": 4.0,
+      "judge_mean": 4.25,
+      "notes": "Ridge point concept correct. RTX 4090 ~81 FLOP/byte plausible. Correctly distinguishes memory-bound vs compute-bound. Honest about model limitations. Solid practitioner-level response."
+    },
+    {
+      "response_num": 3,
+      "prompt_id": "arch_007",
+      "variant": "SFT",
+      "manual": {
+        "technical_accuracy": 1,
+        "calibration": 1,
+        "mechanistic_depth": 1,
+        "audience_calibration": 2
+      },
+      "judge": {
+        "technical_accuracy": 1,
+        "calibration": 1,
+        "mechanistic_depth": 2,
+        "audience_calibration": 3
+      },
+      "manual_mean": 1.25,
+      "judge_mean": 1.75,
+      "notes": "Complete fabrication. Chinchilla is about compute-optimal token-to-parameter ratio (~20 tokens per param), not inference throughput. Invents formula 'throughput proportional to sqrt(N) x cbrt(D)'. All numbers fabricated. Misrepresents Llama 3.1 strategy."
+    },
+    {
+      "response_num": 4,
+      "prompt_id": "gpu_007",
+      "variant": "SFT",
+      "manual": {
+        "technical_accuracy": 3,
+        "calibration": 3,
+        "mechanistic_depth": 3,
+        "audience_calibration": 3
+      },
+      "judge": {
+        "technical_accuracy": 4,
+        "calibration": 4,
+        "mechanistic_depth": 4,
+        "audience_calibration": 4
+      },
+      "manual_mean": 3.0,
+      "judge_mean": 4.0,
+      "notes": "Warp slot range and H100 shared memory (228KB) correct. Register pressure ceiling correctly explained. Claim that 'ncu above 90% = saturated / cannot accept warps' is misleading -- high occupancy is the goal. Causal chain otherwise solid."
+    },
+    {
+      "response_num": 5,
+      "prompt_id": "gpu_002",
+      "variant": "DPO",
+      "manual": {
+        "technical_accuracy": 1,
+        "calibration": 1,
+        "mechanistic_depth": 2,
+        "audience_calibration": 2
+      },
+      "judge": {
+        "technical_accuracy": 2,
+        "calibration": 1,
+        "mechanistic_depth": 2,
+        "audience_calibration": 3
+      },
+      "manual_mean": 1.5,
+      "judge_mean": 2.0,
+      "notes": "RTX 4090 uses GDDR6X, not HBM3. 4090 has 24GB at ~1 TB/s bandwidth, not 192GB at 3.35 TB/s. These are fundamental spec errors. Register file capacity framing is wrong. Latency ordering is plausible but capacity numbers badly off throughout."
+    },
+    {
+      "response_num": 6,
+      "prompt_id": "kernel_001",
+      "variant": "BASE",
+      "manual": {
+        "technical_accuracy": 3,
+        "calibration": 3,
+        "mechanistic_depth": 2,
+        "audience_calibration": 2
+      },
+      "judge": {
+        "technical_accuracy": 4,
+        "calibration": 4,
+        "mechanistic_depth": 2,
+        "audience_calibration": 3
+      },
+      "manual_mean": 2.5,
+      "judge_mean": 3.25,
+      "notes": "General concept correct (tiles loaded from HBM to SRAM once, reused). Excessive markdown headers and intro preamble. Never mechanistically explains the HBM round-trip reduction before being cut off. No arithmetic intensity numbers."
+    },
+    {
+      "response_num": 7,
+      "prompt_id": "ft_002",
+      "variant": "SFT",
+      "manual": {
+        "technical_accuracy": 1,
+        "calibration": 1,
+        "mechanistic_depth": 1,
+        "audience_calibration": 1
+      },
+      "judge": {
+        "technical_accuracy": 1,
+        "calibration": 1,
+        "mechanistic_depth": 2,
+        "audience_calibration": 2
+      },
+      "manual_mean": 1.0,
+      "judge_mean": 1.5,
+      "notes": "QLoRA is Quantized Low-Rank Adaptation (Dettmers et al., UW), not 'Quantized Linear Operator Registration Algorithm from Meta'. Actual mechanism is 4-bit NF4 quantization + BF16 LoRA adapters + double quantization + paged AdamW. Response describes AWQ+GPTQ+Marlin -- a completely different system."
+    },
+    {
+      "response_num": 8,
+      "prompt_id": "dist_001",
+      "variant": "BASE",
+      "manual": {
+        "technical_accuracy": 2,
+        "calibration": 2,
+        "mechanistic_depth": 2,
+        "audience_calibration": 2
+      },
+      "judge": {
+        "technical_accuracy": 2,
+        "calibration": 3,
+        "mechanistic_depth": 2,
+        "audience_calibration": 3
+      },
+      "manual_mean": 2.0,
+      "judge_mean": 2.5,
+      "notes": "Structural description is wrong: Ring AllReduce has no 'active node' or 'root node' -- all N GPUs are simultaneously active. Each GPU sends to its right neighbor every step. Cut off before completing."
+    },
+    {
+      "response_num": 9,
+      "prompt_id": "gpu_006",
+      "variant": "DPO",
+      "manual": {
+        "technical_accuracy": 3,
+        "calibration": 3,
+        "mechanistic_depth": 4,
+        "audience_calibration": 4
+      },
+      "judge": {
+        "technical_accuracy": 2,
+        "calibration": 2,
+        "mechanistic_depth": 4,
+        "audience_calibration": 4
+      },
+      "manual_mean": 3.5,
+      "judge_mean": 3.0,
+      "notes": "Says '32 CUDA threads in a thread block' -- should be 'in a warp'; a block can contain many warps. 128-byte transaction math is correct. Causal chain (non-coalesced -> multiple transactions -> bandwidth collapse) is clear and accurate. '0.25% of peak' floor seems exaggerated."
+    },
+    {
+      "response_num": 10,
+      "prompt_id": "gpu_002",
+      "variant": "BASE",
+      "manual": {
+        "technical_accuracy": 1,
+        "calibration": 1,
+        "mechanistic_depth": 2,
+        "audience_calibration": 2
+      },
+      "judge": {
+        "technical_accuracy": 2,
+        "calibration": 3,
+        "mechanistic_depth": 2,
+        "audience_calibration": 3
+      },
+      "manual_mean": 1.5,
+      "judge_mean": 2.5,
+      "notes": "Registers listed as '32-64 bytes' -- wrong; register file is ~256KB per SM total. L2 cache described as '256KB-1MB' -- H100 L2 is 50MB, A100 is 40MB. Numbers are off by 2-3 orders of magnitude in some cases. Generic textbook bullet format."
+    },
+    {
+      "response_num": 11,
+      "prompt_id": "dist_001",
+      "variant": "DPO",
+      "manual": {
+        "technical_accuracy": 2,
+        "calibration": 2,
+        "mechanistic_depth": 2,
+        "audience_calibration": 3
+      },
+      "judge": {
+        "technical_accuracy": 2,
+        "calibration": 2,
+        "mechanistic_depth": 2,
+        "audience_calibration": 4
+      },
+      "manual_mean": 2.25,
+      "judge_mean": 2.5,
+      "notes": "Algorithm description still wrong ('active node', 'root node'). However, bandwidth math is correct: 2*(N-1)/N * tensor_size per GPU, scalability argument (7/8 utilization at N=8) correctly derived. Mixed: wrong mechanism, correct math."
+    },
+    {
+      "response_num": 12,
+      "prompt_id": "dist_002",
+      "variant": "BASE",
+      "manual": {
+        "technical_accuracy": 3,
+        "calibration": 3,
+        "mechanistic_depth": 2,
+        "audience_calibration": 3
+      },
+      "judge": {
+        "technical_accuracy": 4,
+        "calibration": 4,
+        "mechanistic_depth": 3,
+        "audience_calibration": 4
+      },
+      "manual_mean": 2.75,
+      "judge_mean": 3.75,
+      "notes": "Data parallelism explanation correct and has a concrete example. Tensor and pipeline parallelism are cut off / incomplete. AllReduce correctly invoked. Generic markdown structure but concrete where it exists."
+    },
+    {
+      "response_num": 13,
+      "prompt_id": "agent_001",
+      "variant": "SFT",
+      "manual": {
+        "technical_accuracy": 1,
+        "calibration": 1,
+        "mechanistic_depth": 1,
+        "audience_calibration": 2
+      },
+      "judge": {
+        "technical_accuracy": 1,
+        "calibration": 1,
+        "mechanistic_depth": 2,
+        "audience_calibration": 3
+      },
+      "manual_mean": 1.25,
+      "judge_mean": 1.75,
+      "notes": "ReAct = 'Reasoning + Acting' (Yao et al. 2022), not 'React and Act'. Actual mechanism is interleaved Thought/Action/Observation traces within a single LLM generation pass. Response instead describes a human review loop. 'Used in Meta Llama 3.3 8B inference cluster' is fabricated."
+    },
+    {
+      "response_num": 14,
+      "prompt_id": "agent_005",
+      "variant": "SFT",
+      "manual": {
+        "technical_accuracy": 1,
+        "calibration": 1,
+        "mechanistic_depth": 1,
+        "audience_calibration": 1
+      },
+      "judge": {
+        "technical_accuracy": 1,
+        "calibration": 1,
+        "mechanistic_depth": 2,
+        "audience_calibration": 3
+      },
+      "manual_mean": 1.0,
+      "judge_mean": 1.75,
+      "notes": "Maps cognitive agent memory types entirely to GPU hardware tiers (SRAM, NVMe, vRAM) -- completely wrong domain. Correct mapping: working = context window, episodic = conversation history / vector DB, semantic = knowledge base, procedural = tool definitions and code."
+    },
+    {
+      "response_num": 15,
+      "prompt_id": "dist_004",
+      "variant": "BASE",
+      "manual": {
+        "technical_accuracy": 2,
+        "calibration": 2,
+        "mechanistic_depth": 2,
+        "audience_calibration": 3
+      },
+      "judge": {
+        "technical_accuracy": 2,
+        "calibration": 3,
+        "mechanistic_depth": 2,
+        "audience_calibration": 3
+      },
+      "manual_mean": 2.25,
+      "judge_mean": 2.5,
+      "notes": "NVLink bandwidth numbers are ~5-8x off: NVLink 4.0 (H100) is 900 GB/s total, not 112 GB/s. PCIe 4.0 x16 is ~32 GB/s per direction, not 64. Conceptual distinction (peer-to-peer vs host-GPU, lower latency) is directionally correct."
+    },
+    {
+      "response_num": 16,
+      "prompt_id": "inf_007",
+      "variant": "SFT",
+      "manual": {
+        "technical_accuracy": 3,
+        "calibration": 3,
+        "mechanistic_depth": 4,
+        "audience_calibration": 4
+      },
+      "judge": {
+        "technical_accuracy": 2,
+        "calibration": 3,
+        "mechanistic_depth": 3,
+        "audience_calibration": 4
+      },
+      "manual_mean": 3.5,
+      "judge_mean": 3.0,
+      "notes": "Naive INT4 vs AWQ activation-saliency-based scaling correctly explained. 'Marlin extends AWQ by learning per-layer scaling' is wrong -- Marlin is a fast GEMM kernel for AWQ inference, not an algorithmic extension. Otherwise good mechanistic chain."
+    },
+    {
+      "response_num": 17,
+      "prompt_id": "kernel_002",
+      "variant": "BASE",
+      "manual": {
+        "technical_accuracy": 3,
+        "calibration": 3,
+        "mechanistic_depth": 3,
+        "audience_calibration": 3
+      },
+      "judge": {
+        "technical_accuracy": 2,
+        "calibration": 3,
+        "mechanistic_depth": 2,
+        "audience_calibration": 3
+      },
+      "manual_mean": 3.0,
+      "judge_mean": 2.5,
+      "notes": "O(N^2) memory complexity from N x N attention matrix correctly explained. Q/K/V dimensions correct. Flash Attention solution (tiled recomputation to avoid materializing full N x N matrix in HBM) not fully visible in cut-off text but what is shown is accurate."
+    },
+    {
+      "response_num": 18,
+      "prompt_id": "kernel_007",
+      "variant": "DPO",
+      "manual": {
+        "technical_accuracy": 2,
+        "calibration": 2,
+        "mechanistic_depth": 1,
+        "audience_calibration": 2
+      },
+      "judge": {
+        "technical_accuracy": 2,
+        "calibration": 2,
+        "mechanistic_depth": 3,
+        "audience_calibration": 4
+      },
+      "manual_mean": 1.75,
+      "judge_mean": 2.75,
+      "notes": "NF4 = Normal Float 4, not 'Neuron Format 4'. Actual mechanism: quantile-based mapping places INT4 levels where weights actually concentrate (matching normal distribution), not a learned per-tensor scaling factor. 'Calibration pass takes weeks' is fabricated."
+    },
+    {
+      "response_num": 19,
+      "prompt_id": "ft_005",
+      "variant": "BASE",
+      "manual": {
+        "technical_accuracy": 1,
+        "calibration": 1,
+        "mechanistic_depth": 1,
+        "audience_calibration": 1
+      },
+      "judge": {
+        "technical_accuracy": 1,
+        "calibration": 1,
+        "mechanistic_depth": 1,
+        "audience_calibration": 2
+      },
+      "manual_mean": 1.0,
+      "judge_mean": 1.25,
+      "notes": "DPO = Direct Preference Optimization (Rafailov et al. 2023), not 'Data-Augmented Pre-Training with Online fine-tuning'. Actual insight: DPO eliminates the reward model and RL loop by reformulating RLHF as a supervised objective directly on preference pairs. Response describes generic pretraining benefits."
+    },
+    {
+      "response_num": 20,
+      "prompt_id": "arch_005",
+      "variant": "DPO",
+      "manual": {
+        "technical_accuracy": 1,
+        "calibration": 1,
+        "mechanistic_depth": 1,
+        "audience_calibration": 2
+      },
+      "judge": {
+        "technical_accuracy": 1,
+        "calibration": 1,
+        "mechanistic_depth": 2,
+        "audience_calibration": 3
+      },
+      "manual_mean": 1.25,
+      "judge_mean": 1.75,
+      "notes": "RMSNorm removes mean-centering and normalizes by root mean square only -- it does NOT maintain running statistics. The 'O(N) passes over full context' claim is entirely fabricated. '100x speedup, 0.00001% quality difference' numbers are invented. Core definition is wrong."
+    }
+  ]
+}
