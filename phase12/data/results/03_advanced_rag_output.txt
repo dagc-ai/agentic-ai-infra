@@ -1,0 +1,132 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 15709.00it/s]
+[1mMPNetModel LOAD REPORT[0m from: sentence-transformers/all-mpnet-base-v2
+Key                     | Status     |  | 
+------------------------+------------+--+-
+embeddings.position_ids | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+Loading weights:   0%|          | 0/105 [00:00<?, ?it/s]Loading weights: 100%|██████████| 105/105 [00:00<00:00, 13489.40it/s]
+[1mBertForSequenceClassification LOAD REPORT[0m from: cross-encoder/ms-marco-MiniLM-L-6-v2
+Key                          | Status     |  | 
+-----------------------------+------------+--+-
+bert.embeddings.position_ids | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+Building index...
+Batches:   0%|          | 0/4 [00:00<?, ?it/s]Batches:  25%|██▌       | 1/4 [00:01<00:03,  1.08s/it]Batches:  50%|█████     | 2/4 [00:02<00:02,  1.01s/it]Batches:  75%|███████▌  | 3/4 [00:02<00:00,  1.01it/s]Batches: 100%|██████████| 4/4 [00:03<00:00,  1.38it/s]Batches: 100%|██████████| 4/4 [00:03<00:00,  1.21it/s]
+Index: 106 vectors from 11 documents
+
+[1/10] (direct) How does Flash Attention reduce memory complexity?
+  Hypothesis: # Flash Attention Memory Complexity Reduction
+
+Flash Attention reduces memory complexity from O(N²) to O(N) by implement...
+  Method                 Hit Rate    Top-1    Latency
+  Baseline                   100%        Y
+  HyDE                       100%        Y      4086ms
+  Rerank                     100%        Y       495ms
+  HyDE+Rerank                100%        Y      3202ms
+
+[2/10] (direct) What is Ring AllReduce and how does it synchronize gradients?
+  Hypothesis: # Ring AllReduce
+
+Ring AllReduce is a collective communication algorithm that synchronizes gradients across distributed ...
+  Method                 Hit Rate    Top-1    Latency
+  Baseline                   100%        Y
+  HyDE                       100%        Y      3187ms
+  Rerank                     100%        Y       240ms
+  HyDE+Rerank                100%        Y      3172ms
+
+[3/10] (paraphrase) Why does memory bandwidth limit attention at long sequences?
+  Hypothesis: # Memory Bandwidth Limitation in Long-Sequence Attention
+
+Attention mechanisms exhibit quadratic computational complexit...
+  Method                 Hit Rate    Top-1    Latency
+  Baseline                   100%        Y
+  HyDE                       100%        Y      3288ms
+  Rerank                      50%        N       257ms
+  HyDE+Rerank                 50%        N      3343ms
+
+[4/10] (paraphrase) What keeps GPUs from being fully utilized during inference?
+  Hypothesis: # GPU Underutilization During Inference
+
+Memory bandwidth constraints, rather than computational capacity, represent the...
+  Method                 Hit Rate    Top-1    Latency
+  Baseline                    50%        N
+  HyDE                       100%        Y      4559ms
+  Rerank                     100%        Y       257ms
+  HyDE+Rerank                100%        Y      3267ms
+
+[5/10] (cross-document) How does the KV cache problem connect to the memory hierarchy?
+  Hypothesis: # KV Cache and Memory Hierarchy
+
+The KV cache problem manifests as a critical bandwidth bottleneck in the memory hierarc...
+  Method                 Hit Rate    Top-1    Latency
+  Baseline                    50%        N
+  HyDE                       100%        N      3188ms
+  Rerank                      50%        N       244ms
+  HyDE+Rerank                 50%        N      3344ms
+
+[6/10] (direct) What is the relationship between LoRA rank and model quality?
+  Hypothesis: # LoRA Rank and Model Quality Relationship
+
+LoRA rank directly controls the intrinsic dimensionality of the learned weig...
+  Method                 Hit Rate    Top-1    Latency
+  Baseline                   100%        Y
+  HyDE                       100%        Y      3064ms
+  Rerank                     100%        Y       243ms
+  HyDE+Rerank                100%        Y      3473ms
+
+[7/10] (direct) Why did DPO replace PPO-based RLHF in practice?
+  Hypothesis: # DPO's Practical Advantages Over PPO-Based RLHF
+
+Direct Preference Optimization (DPO) replaced PPO-based RLHF in practi...
+  Method                 Hit Rate    Top-1    Latency
+  Baseline                   100%        Y
+  HyDE                       100%        Y      2829ms
+  Rerank                     100%        N       240ms
+  HyDE+Rerank                100%        N      3049ms
+
+[8/10] (direct) What does LLM-as-judge measure and what are its failure modes?
+  Hypothesis: # LLM-as-Judge: Measurement and Failure Modes
+
+LLM-as-judge measures the quality of generated text by prompting a separa...
+  Method                 Hit Rate    Top-1    Latency
+  Baseline                   100%        Y
+  HyDE                       100%        Y      3368ms
+  Rerank                     100%        Y       231ms
+  HyDE+Rerank                100%        Y      3123ms
+
+[9/10] (abstract) What is the binding constraint in distributed training at scale?
+  Hypothesis: # Binding Constraint in Distributed Training at Scale
+
+The binding constraint in distributed training at scale is **comm...
+  Method                 Hit Rate    Top-1    Latency
+  Baseline                   100%        Y
+  HyDE                       100%        Y      2970ms
+  Rerank                     100%        Y       245ms
+  HyDE+Rerank                100%        Y      3328ms
+
+[10/10] (abstract) Why does quantization improve throughput but not always latency?
+  Hypothesis: # Quantization and Throughput vs. Latency
+
+Quantization improves throughput because it reduces memory bandwidth requirem...
+  Method                 Hit Rate    Top-1    Latency
+  Baseline                   100%        Y
+  HyDE                       100%        Y      3162ms
+  Rerank                     100%        N       243ms
+  HyDE+Rerank                100%        N      3180ms
+
+============================================================
+IMPROVEMENT SUMMARY vs BASELINE
+============================================================
+Method                 Hit Rate    Top-1
+----------------------------------------
+  baseline                  90%      80%
+  hyde                     100%      90%
+  rerank                    90%      60%
+  hyde_rerank               90%      60%
+
+Results saved to ../data/results/03_advanced_rag_results.json

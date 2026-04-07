@@ -1,0 +1,565 @@
+[
+  {
+    "query": "How does Flash Attention reduce memory complexity?",
+    "type": "direct",
+    "expected": [
+      "phase3-flash-attention-explained-2.md"
+    ],
+    "hypothesis": "# Flash Attention Memory Complexity Reduction\n\nFlash Attention reduces memory complexity from O(N\u00b2) to O(N) by implementing a block-wise computation strategy that leverages the GPU's fast SRAM hierarchy, avoiding redundant materialization of the full attention matrix. Instead of computing and storing the complete N\u00d7N attention matrix in GPU HBM (high-bandwidth memory), Flash Attention partitions the query, key, and value sequences into blocks, processes them incrementally in SRAM, and maintains running statistics (row-wise max and softmax denominators) to compute exact attention scores without storing intermediate results. This algorithmic approach reduces HBM traffic from quadratic to linear with sequence length, as only inputs and outputs (O(N) elements) must traverse the slow HBM-SRAM boundary, while the quadratic intermediate computations occur entirely within fast SRAM. The technique maintains numerical equivalence with standard attention while dramatically",
+    "baseline": {
+      "retrieved_sources": [
+        "phase3-flash-attention-explained-2.md",
+        "phase3-flash-attention-explained-2.md",
+        "phase2-cuda-kernels.md",
+        "phase3-flash-attention-explained-2.md",
+        "phase2-cuda-kernels.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    },
+    "hyde": {
+      "retrieved_sources": [
+        "phase3-flash-attention-explained-2.md",
+        "phase2-cuda-kernels.md",
+        "phase3-flash-attention-explained-2.md",
+        "phase6-hardware-architectures.md",
+        "phase2-cuda-kernels.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    },
+    "rerank": {
+      "retrieved_sources": [
+        "phase3-flash-attention-explained-2.md",
+        "phase2-cuda-kernels.md",
+        "phase2-cuda-kernels.md",
+        "phase3-flash-attention-explained-2.md",
+        "phase3-flash-attention-explained-2.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    },
+    "hyde_rerank": {
+      "retrieved_sources": [
+        "phase3-flash-attention-explained-2.md",
+        "phase2-cuda-kernels.md",
+        "phase2-cuda-kernels.md",
+        "phase3-flash-attention-explained-2.md",
+        "phase3-flash-attention-explained-2.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    }
+  },
+  {
+    "query": "What is Ring AllReduce and how does it synchronize gradients?",
+    "type": "direct",
+    "expected": [
+      "phase4-distributed-training-interconnects-2.md"
+    ],
+    "hypothesis": "# Ring AllReduce\n\nRing AllReduce is a collective communication algorithm that synchronizes gradients across distributed GPUs by arranging them in a logical ring topology where each device communicates only with its two neighbors. The algorithm operates in two phases: the reduce-scatter phase, where each device sends its gradient chunk to the next neighbor and receives chunks from the previous neighbor, performing local reductions until each device holds one fully reduced chunk; and the all-gather phase, where each device propagates its reduced chunk around the ring so all devices eventually obtain the complete synchronized gradient tensor. This topology eliminates the bandwidth bottleneck inherent in parameter server architectures by ensuring each device uses full inter-node bandwidth for only N rounds (where N is the number of devices), achieving O(N-1)/N optimal bandwidth efficiency. Ring AllReduce has become the de facto standard in modern distributed training frameworks like Horovod because it minimizes communication latency and avoids creating",
+    "baseline": {
+      "retrieved_sources": [
+        "phase4-distributed-training-interconnects-2.md",
+        "phase2-cuda-kernels.md",
+        "phase1-gpu-architecture-primer.md",
+        "phase4-distributed-training-interconnects-2.md",
+        "phase11-evals-mental-model.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    },
+    "hyde": {
+      "retrieved_sources": [
+        "phase4-distributed-training-interconnects-2.md",
+        "phase1-gpu-architecture-primer.md",
+        "phase4-distributed-training-interconnects-2.md",
+        "phase4-distributed-training-interconnects-2.md",
+        "phase4-distributed-training-interconnects-2.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    },
+    "rerank": {
+      "retrieved_sources": [
+        "phase4-distributed-training-interconnects-2.md",
+        "phase10-alignment-rlhf-dpo-reward-modeling.md",
+        "phase11-evals-mental-model.md",
+        "phase2-cuda-kernels.md",
+        "phase4-distributed-training-interconnects-2.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    },
+    "hyde_rerank": {
+      "retrieved_sources": [
+        "phase4-distributed-training-interconnects-2.md",
+        "phase10-alignment-rlhf-dpo-reward-modeling.md",
+        "phase11-evals-mental-model.md",
+        "phase2-cuda-kernels.md",
+        "phase4-distributed-training-interconnects-2.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    }
+  },
+  {
+    "query": "Why does memory bandwidth limit attention at long sequences?",
+    "type": "paraphrase",
+    "expected": [
+      "phase3-flash-attention-explained-2.md",
+      "phase1-gpu-architecture-primer.md"
+    ],
+    "hypothesis": "# Memory Bandwidth Limitation in Long-Sequence Attention\n\nAttention mechanisms exhibit quadratic computational complexity O(n\u00b2) in sequence length, but the bottleneck shifts from compute to memory bandwidth during inference on long sequences because the attention matrix (QK^T) and softmax outputs must be repeatedly transferred between high-bandwidth memory (HBM) and compute units. For each token generated, the key-value cache of size O(n) must be read from main memory, while the arithmetic intensity (FLOPs per byte) of attention remains O(1)\u2014meaning memory operations dominate execution time rather than computation. Modern GPUs achieve peak compute in the teraFLOP range but sustain only hundreds of GB/s of memory bandwidth, creating a compute-to-memory ratio that makes the latency-bound attention operations memory-bandwidth-limited rather than compute-limited. This effect intensifies for long sequences because the working set exce",
+    "baseline": {
+      "retrieved_sources": [
+        "phase3-flash-attention-explained-2.md",
+        "phase2-cuda-kernels.md",
+        "phase2-cuda-kernels.md",
+        "phase3-flash-attention-explained-2.md",
+        "phase1-gpu-architecture-primer.md"
+      ],
+      "hits": 2,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    },
+    "hyde": {
+      "retrieved_sources": [
+        "phase3-flash-attention-explained-2.md",
+        "phase3-flash-attention-explained-2.md",
+        "phase2-cuda-kernels.md",
+        "phase6-hardware-architectures.md",
+        "phase1-gpu-architecture-primer.md"
+      ],
+      "hits": 2,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    },
+    "rerank": {
+      "retrieved_sources": [
+        "phase2-cuda-kernels.md",
+        "phase3-flash-attention-explained-2.md",
+        "phase3-flash-attention-explained-2.md",
+        "phase2-cuda-kernels.md",
+        "phase3-flash-attention-explained-2.md"
+      ],
+      "hits": 1,
+      "hit_rate": 0.5,
+      "top1_correct": false
+    },
+    "hyde_rerank": {
+      "retrieved_sources": [
+        "phase2-cuda-kernels.md",
+        "phase3-flash-attention-explained-2.md",
+        "phase3-flash-attention-explained-2.md",
+        "phase2-cuda-kernels.md",
+        "phase3-flash-attention-explained-2.md"
+      ],
+      "hits": 1,
+      "hit_rate": 0.5,
+      "top1_correct": false
+    }
+  },
+  {
+    "query": "What keeps GPUs from being fully utilized during inference?",
+    "type": "paraphrase",
+    "expected": [
+      "phase1-gpu-architecture-primer.md",
+      "phase5-inference-infrastructure.md"
+    ],
+    "hypothesis": "# GPU Underutilization During Inference\n\nMemory bandwidth constraints, rather than computational capacity, represent the primary bottleneck limiting GPU utilization during inference. Large language models exhibit compute-to-memory ratios of approximately 1-10 operations per byte loaded, whereas modern GPUs can perform orders of magnitude more computations than their memory subsystems can supply data for, resulting in memory-bound operations that leave compute cores idle. Token generation further exacerbates this inefficiency through autoregressive sampling, where each forward pass generates only a single token despite requiring access to the full model weights, creating severe latency-throughput tradeoffs. Additionally, small batch sizes typical in interactive inference scenarios fail to amortize memory access costs, preventing the data parallelism necessary to saturate computational pipelines. Lastly, pipeline stalls from dynamic control flow, attention masking patterns, and synchronization overhead between distributed inference components reduce effective utilization below theoretical peak",
+    "baseline": {
+      "retrieved_sources": [
+        "phase6-hardware-architectures.md",
+        "phase4-distributed-training-interconnects-2.md",
+        "phase1-gpu-architecture-primer.md",
+        "phase1-gpu-architecture-primer.md",
+        "phase6-hardware-architectures.md"
+      ],
+      "hits": 1,
+      "hit_rate": 0.5,
+      "top1_correct": false
+    },
+    "hyde": {
+      "retrieved_sources": [
+        "phase5-inference-infrastructure.md",
+        "phase6-hardware-architectures.md",
+        "phase6-hardware-architectures.md",
+        "phase1-gpu-architecture-primer.md",
+        "phase1-gpu-architecture-primer.md"
+      ],
+      "hits": 2,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    },
+    "rerank": {
+      "retrieved_sources": [
+        "phase5-inference-infrastructure.md",
+        "phase1-gpu-architecture-primer.md",
+        "phase6-hardware-architectures.md",
+        "phase8-modern-llm-architecture.md",
+        "phase6-hardware-architectures.md"
+      ],
+      "hits": 2,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    },
+    "hyde_rerank": {
+      "retrieved_sources": [
+        "phase5-inference-infrastructure.md",
+        "phase3-flash-attention-explained-2.md",
+        "phase1-gpu-architecture-primer.md",
+        "phase6-hardware-architectures.md",
+        "phase2-cuda-kernels.md"
+      ],
+      "hits": 2,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    }
+  },
+  {
+    "query": "How does the KV cache problem connect to the memory hierarchy?",
+    "type": "cross-document",
+    "expected": [
+      "phase5-inference-infrastructure.md",
+      "phase1-gpu-architecture-primer.md"
+    ],
+    "hypothesis": "# KV Cache and Memory Hierarchy\n\nThe KV cache problem manifests as a critical bandwidth bottleneck in the memory hierarchy during autoregressive transformer inference. As sequence length grows, the key-value tensors stored in HBM (high-bandwidth memory) become increasingly large, forcing repeated round-trips between compute units and main memory to fetch cached values for each new token generation. This creates an unfavorable compute-to-memory-ratio that saturates the memory bus before arithmetic throughput can be fully utilized, causing the system to become memory-bound rather than compute-bound. Modern solutions like flash-attention and paged attention optimize the memory hierarchy by exploiting faster SRAM caches and improving access patterns, reducing unnecessary data movement between memory tiers. The fundamental constraint is that attention's quadratic growth in KV cache size outpaces the logarithmic improvements in memory bandwidth relative to compute capacity across GPU memory hierarchies.",
+    "baseline": {
+      "retrieved_sources": [
+        "phase8-modern-llm-architecture.md",
+        "phase11-evals-mental-model.md",
+        "phase3-flash-attention-explained-2.md",
+        "phase5-inference-infrastructure.md",
+        "phase2-cuda-kernels.md"
+      ],
+      "hits": 1,
+      "hit_rate": 0.5,
+      "top1_correct": false
+    },
+    "hyde": {
+      "retrieved_sources": [
+        "phase3-flash-attention-explained-2.md",
+        "phase5-inference-infrastructure.md",
+        "phase6-hardware-architectures.md",
+        "phase1-gpu-architecture-primer.md",
+        "phase2-cuda-kernels.md"
+      ],
+      "hits": 2,
+      "hit_rate": 1.0,
+      "top1_correct": false
+    },
+    "rerank": {
+      "retrieved_sources": [
+        "phase3-flash-attention-explained-2.md",
+        "phase5-inference-infrastructure.md",
+        "phase11-evals-mental-model.md",
+        "phase8-modern-llm-architecture.md",
+        "phase11-evals-mental-model.md"
+      ],
+      "hits": 1,
+      "hit_rate": 0.5,
+      "top1_correct": false
+    },
+    "hyde_rerank": {
+      "retrieved_sources": [
+        "phase3-flash-attention-explained-2.md",
+        "phase5-inference-infrastructure.md",
+        "phase11-evals-mental-model.md",
+        "phase8-modern-llm-architecture.md",
+        "phase5-inference-infrastructure.md"
+      ],
+      "hits": 1,
+      "hit_rate": 0.5,
+      "top1_correct": false
+    }
+  },
+  {
+    "query": "What is the relationship between LoRA rank and model quality?",
+    "type": "direct",
+    "expected": [
+      "phase9-fine-tuning-mental-model.md"
+    ],
+    "hypothesis": "# LoRA Rank and Model Quality Relationship\n\nLoRA rank directly controls the intrinsic dimensionality of the learned weight update matrices and establishes a fundamental trade-off between adaptation capacity and generalization. Higher ranks (e.g., 128, 256) enable the adapter to capture more complex task-specific patterns by increasing the expressiveness of the low-rank decomposition, typically yielding superior performance on the target task at the cost of increased parameter count and potential overfitting. Conversely, lower ranks (e.g., 8, 16) impose stronger regularization through dimensionality reduction, improving computational efficiency and generalization to out-of-distribution examples while sacrificing fine-grained adaptation capability. Empirically, optimal rank selection follows a task-dependent curve where quality initially increases with rank until reaching a plateau, beyond which marginal improvements diminish while computational costs scale linearly. The effective rank ceiling is bounded by",
+    "baseline": {
+      "retrieved_sources": [
+        "phase9-fine-tuning-mental-model.md",
+        "phase9-fine-tuning-mental-model.md",
+        "phase9-fine-tuning-mental-model.md",
+        "phase10-alignment-rlhf-dpo-reward-modeling.md",
+        "phase11-evals-mental-model.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    },
+    "hyde": {
+      "retrieved_sources": [
+        "phase9-fine-tuning-mental-model.md",
+        "phase11-evals-mental-model.md",
+        "phase9-fine-tuning-mental-model.md",
+        "phase9-fine-tuning-mental-model.md",
+        "phase11-evals-mental-model.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    },
+    "rerank": {
+      "retrieved_sources": [
+        "phase9-fine-tuning-mental-model.md",
+        "phase9-fine-tuning-mental-model.md",
+        "phase11-evals-mental-model.md",
+        "phase8-modern-llm-architecture.md",
+        "phase11-evals-mental-model.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    },
+    "hyde_rerank": {
+      "retrieved_sources": [
+        "phase9-fine-tuning-mental-model.md",
+        "phase9-fine-tuning-mental-model.md",
+        "phase11-evals-mental-model.md",
+        "phase9-fine-tuning-mental-model.md",
+        "phase7-model-architecture.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    }
+  },
+  {
+    "query": "Why did DPO replace PPO-based RLHF in practice?",
+    "type": "direct",
+    "expected": [
+      "phase10-alignment-rlhf-dpo-reward-modeling.md"
+    ],
+    "hypothesis": "# DPO's Practical Advantages Over PPO-Based RLHF\n\nDirect Preference Optimization (DPO) replaced PPO-based RLHF in practice because it eliminates the need for a separate reward model and reference model, reducing computational overhead and memory requirements during training. DPO directly optimizes the language model against preference pairs by reparameterizing the reward function in closed form, enabling stable training with a single forward pass rather than the multiple forward/backward passes required by PPO's actor-critic architecture. This simplified pipeline reduces hyperparameter tuning complexity\u2014PPO requires careful tuning of KL divergence coefficients, learning rates, and advantage estimation\u2014while DPO's implicit reward modeling via the preference sigmoid provides more direct gradient signals. Additionally, DPO exhibits better empirical performance on alignment benchmarks while being substantially faster to train, as it avoids the expensive RL training loop and associated",
+    "baseline": {
+      "retrieved_sources": [
+        "phase10-alignment-rlhf-dpo-reward-modeling.md",
+        "phase10-alignment-rlhf-dpo-reward-modeling.md",
+        "phase11-evals-mental-model.md",
+        "phase10-alignment-rlhf-dpo-reward-modeling.md",
+        "phase11-evals-mental-model.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    },
+    "hyde": {
+      "retrieved_sources": [
+        "phase10-alignment-rlhf-dpo-reward-modeling.md",
+        "phase10-alignment-rlhf-dpo-reward-modeling.md",
+        "phase10-alignment-rlhf-dpo-reward-modeling.md",
+        "phase11-evals-mental-model.md",
+        "phase11-evals-mental-model.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    },
+    "rerank": {
+      "retrieved_sources": [
+        "phase11-evals-mental-model.md",
+        "phase11-evals-mental-model.md",
+        "phase10-alignment-rlhf-dpo-reward-modeling.md",
+        "phase10-alignment-rlhf-dpo-reward-modeling.md",
+        "phase10-alignment-rlhf-dpo-reward-modeling.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": false
+    },
+    "hyde_rerank": {
+      "retrieved_sources": [
+        "phase11-evals-mental-model.md",
+        "phase11-evals-mental-model.md",
+        "phase10-alignment-rlhf-dpo-reward-modeling.md",
+        "phase10-alignment-rlhf-dpo-reward-modeling.md",
+        "phase10-alignment-rlhf-dpo-reward-modeling.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": false
+    }
+  },
+  {
+    "query": "What does LLM-as-judge measure and what are its failure modes?",
+    "type": "direct",
+    "expected": [
+      "phase11-evals-mental-model.md"
+    ],
+    "hypothesis": "# LLM-as-Judge: Measurement and Failure Modes\n\nLLM-as-judge measures the quality of generated text by prompting a separate language model to evaluate outputs against specified criteria such as relevance, coherence, factuality, or instruction-following, producing scores or rankings that serve as surrogates for human evaluation. The primary failure modes include **preference bias**, where judge models exhibit consistent stylistic preferences (favoring verbose responses or specific writing patterns regardless of quality), **position bias** and **length bias** that skew evaluations based on output ordering or token count rather than semantic merit, and **circular reasoning** when the judge model and evaluated model share training data or architectural similarities, creating artificially inflated agreement. Judge models also fail at detecting hallucinations and factual errors that require external knowledge verification, and they are susceptible to **prompt injection** attacks and inconsistent reasoning when evaluation criteria are ambiguous or conflicting. These",
+    "baseline": {
+      "retrieved_sources": [
+        "phase11-evals-mental-model.md",
+        "phase11-evals-mental-model.md",
+        "phase10-alignment-rlhf-dpo-reward-modeling.md",
+        "phase9-fine-tuning-mental-model.md",
+        "phase11-evals-mental-model.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    },
+    "hyde": {
+      "retrieved_sources": [
+        "phase11-evals-mental-model.md",
+        "phase10-alignment-rlhf-dpo-reward-modeling.md",
+        "phase10-alignment-rlhf-dpo-reward-modeling.md",
+        "phase11-evals-mental-model.md",
+        "phase7-model-architecture.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    },
+    "rerank": {
+      "retrieved_sources": [
+        "phase11-evals-mental-model.md",
+        "phase11-evals-mental-model.md",
+        "phase10-alignment-rlhf-dpo-reward-modeling.md",
+        "phase11-evals-mental-model.md",
+        "phase11-evals-mental-model.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    },
+    "hyde_rerank": {
+      "retrieved_sources": [
+        "phase11-evals-mental-model.md",
+        "phase11-evals-mental-model.md",
+        "phase11-evals-mental-model.md",
+        "phase10-alignment-rlhf-dpo-reward-modeling.md",
+        "phase11-evals-mental-model.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    }
+  },
+  {
+    "query": "What is the binding constraint in distributed training at scale?",
+    "type": "abstract",
+    "expected": [
+      "phase4-distributed-training-interconnects-2.md"
+    ],
+    "hypothesis": "# Binding Constraint in Distributed Training at Scale\n\nThe binding constraint in distributed training at scale is **communication bandwidth**, not compute capacity. As training parallelizes across multiple GPUs or TPUs, the all-reduce operations required to synchronize gradients during backpropagation create a communication bottleneck that grows with model size and number of devices. While compute throughput scales nearly linearly with additional hardware, inter-device communication is limited by network bandwidth (typically 100 Gb/s to 800 Gb/s per link), creating an increasingly unfavorable compute-to-communication ratio. This constraint is further exacerbated in data parallelism by the O(n) gradient aggregation cost and in model parallelism by the sequential pipeline bubbles that force synchronization points. Modern techniques like gradient compression, overlapping computation with communication, and topology-aware scheduling aim to mitigate this fundamental limitation.",
+    "baseline": {
+      "retrieved_sources": [
+        "phase4-distributed-training-interconnects-2.md",
+        "phase10-alignment-rlhf-dpo-reward-modeling.md",
+        "phase7-model-architecture.md",
+        "phase4-distributed-training-interconnects-2.md",
+        "phase7-model-architecture.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    },
+    "hyde": {
+      "retrieved_sources": [
+        "phase4-distributed-training-interconnects-2.md",
+        "phase4-distributed-training-interconnects-2.md",
+        "phase1-gpu-architecture-primer.md",
+        "phase4-distributed-training-interconnects-2.md",
+        "phase4-distributed-training-interconnects-2.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    },
+    "rerank": {
+      "retrieved_sources": [
+        "phase4-distributed-training-interconnects-2.md",
+        "phase4-distributed-training-interconnects-2.md",
+        "phase4-distributed-training-interconnects-2.md",
+        "phase8-modern-llm-architecture.md",
+        "phase7-model-architecture.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    },
+    "hyde_rerank": {
+      "retrieved_sources": [
+        "phase4-distributed-training-interconnects-2.md",
+        "phase4-distributed-training-interconnects-2.md",
+        "phase6-hardware-architectures.md",
+        "phase4-distributed-training-interconnects-2.md",
+        "phase6-hardware-architectures.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    }
+  },
+  {
+    "query": "Why does quantization improve throughput but not always latency?",
+    "type": "abstract",
+    "expected": [
+      "phase5-inference-infrastructure.md"
+    ],
+    "hypothesis": "# Quantization and Throughput vs. Latency\n\nQuantization improves throughput because it reduces memory bandwidth requirements and enables higher batch sizes within the same GPU memory constraints, allowing multiple inference requests to be processed simultaneously. However, quantization does not consistently improve latency because end-to-end inference time depends on compute kernel efficiency, and lower-precision operations (INT8, FP8) often execute with lower peak TFLOPS compared to FP32 on modern GPUs, creating a tradeoff where bandwidth savings are offset by reduced arithmetic intensity. Single-request latency is further constrained by sequential dependencies in the model's computational graph and memory access patterns that may not benefit from quantization-specific optimizations. Therefore, while quantization increases system throughput by saturating compute resources with more concurrent requests, it can increase per-request latency if the quantized kernel implementation lacks hardware-level acceleration or if the model becomes memory-bound",
+    "baseline": {
+      "retrieved_sources": [
+        "phase5-inference-infrastructure.md",
+        "phase4-distributed-training-interconnects-2.md",
+        "phase5-inference-infrastructure.md",
+        "phase5-inference-infrastructure.md",
+        "phase6-hardware-architectures.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    },
+    "hyde": {
+      "retrieved_sources": [
+        "phase5-inference-infrastructure.md",
+        "phase6-hardware-architectures.md",
+        "phase6-hardware-architectures.md",
+        "phase6-hardware-architectures.md",
+        "phase5-inference-infrastructure.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": true
+    },
+    "rerank": {
+      "retrieved_sources": [
+        "phase6-hardware-architectures.md",
+        "phase5-inference-infrastructure.md",
+        "phase5-inference-infrastructure.md",
+        "phase5-inference-infrastructure.md",
+        "phase1-gpu-architecture-primer.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": false
+    },
+    "hyde_rerank": {
+      "retrieved_sources": [
+        "phase6-hardware-architectures.md",
+        "phase5-inference-infrastructure.md",
+        "phase5-inference-infrastructure.md",
+        "phase5-inference-infrastructure.md",
+        "phase1-gpu-architecture-primer.md"
+      ],
+      "hits": 1,
+      "hit_rate": 1.0,
+      "top1_correct": false
+    }
+  }
+]
