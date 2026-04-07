@@ -17,3 +17,5 @@ phase10/reward-model/model.safetensors
 phase10/reward-model/tokenizer.json
 phase10/dpo-adapter/adapter_model.safetensors
 phase10/dpo-adapter/tokenizer.json
+__pycache__/
+*.pyc

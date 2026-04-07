@@ -1,0 +1,22 @@
+{
+  "per_dimension": {
+    "BASE": {
+      "technical_accuracy": 2.02,
+      "calibration": 2.46,
+      "mechanistic_depth": 2.04,
+      "audience_calibration": 3.08
+    },
+    "SFT": {
+      "technical_accuracy": 1.82,
+      "calibration": 2.04,
+      "mechanistic_depth": 2.72,
+      "audience_calibration": 3.5
+    },
+    "DPO": {
+      "technical_accuracy": 1.92,
+      "calibration": 2.06,
+      "mechanistic_depth": 2.76,
+      "audience_calibration": 3.56
+    }
+  }
+}
