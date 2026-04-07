@@ -1,0 +1,173 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+Loading model: all-MiniLM-L6-v2
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Loading weights: 100%|██████████| 103/103 [00:00<00:00, 9407.14it/s]
+[1mBertModel LOAD REPORT[0m from: sentence-transformers/all-MiniLM-L6-v2
+Key                     | Status     |  | 
+------------------------+------------+--+-
+embeddings.position_ids | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+Embedding 18 sentences...
+
+======================================================================
+PAIRWISE SIMILARITY ANALYSIS
+======================================================================
+
+[Flash Attention / Memory]
+  FA1 vs FA2: 0.490
+  FA1 vs FA3: 0.576
+  FA1 vs FA4: 0.433
+  FA2 vs FA3: 0.263
+  FA2 vs FA4: 0.553
+  FA3 vs FA4: 0.267
+  --> Group mean similarity: 0.430
+
+[Distributed Training]
+  DT1 vs DT2: 0.455
+  DT1 vs DT3: 0.278
+  DT1 vs DT4: 0.362
+  DT2 vs DT3: 0.284
+  DT2 vs DT4: 0.162
+  DT3 vs DT4: 0.176
+  --> Group mean similarity: 0.286
+
+[Alignment]
+  AL1 vs AL2: 0.456
+  AL1 vs AL3: 0.135
+  AL1 vs AL4: 0.098
+  AL2 vs AL3: 0.168
+  AL2 vs AL4: 0.136
+  AL3 vs AL4: 0.199
+  --> Group mean similarity: 0.199
+
+[Adversarial (same term, different meaning)]
+  ADV1 vs ADV2: 0.124
+  ADV1 vs ADV3: 0.047
+  ADV2 vs ADV3: 0.381
+  --> Group mean similarity: 0.184
+
+[Paraphrase (different words, same meaning)]
+  PARA1 vs PARA2: 0.510
+  PARA1 vs PARA3: 0.424
+  PARA2 vs PARA3: 0.584
+  --> Group mean similarity: 0.506
+
+[Cross-group: Flash Attention vs Distributed Training]
+  Mean cross-group similarity: 0.218
+
+[Cross-group: Flash Attention vs Alignment]
+  Mean cross-group similarity: 0.109
+
+======================================================================
+DIAGNOSTIC QUESTIONS
+======================================================================
+
+Q1: Does 'Attention is all you need' (paper title) cluster with Flash Attention?
+  ADV1 vs ADV2: 0.124  (want: LOW)
+  ADV1 vs ADV3: 0.047  (want: LOW)
+  ADV2 vs ADV3: 0.381  (want: HIGH)
+
+Q2: Can the model bridge paraphrase -- 'HBM round trips' vs 'memory access overhead'?
+  PARA1 vs PARA2: 0.510  (want: HIGH)
+  PARA1 vs PARA3: 0.424  (want: HIGH)
+  PARA2 vs PARA3: 0.584  (want: HIGH)
+
+Q3: Does Flash Attention prose (FA1-FA4) cluster more tightly than cross-group?
+  Within FA group mean: 0.430
+  FA vs DT cross mean:  0.218
+  Separation ratio: 2.0x
+
+Loading model: all-mpnet-base-v2
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 14675.45it/s]
+[1mMPNetModel LOAD REPORT[0m from: sentence-transformers/all-mpnet-base-v2
+Key                     | Status     |  | 
+------------------------+------------+--+-
+embeddings.position_ids | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+Embedding 18 sentences...
+
+======================================================================
+PAIRWISE SIMILARITY ANALYSIS
+======================================================================
+
+[Flash Attention / Memory]
+  FA1 vs FA2: 0.560
+  FA1 vs FA3: 0.453
+  FA1 vs FA4: 0.460
+  FA2 vs FA3: 0.247
+  FA2 vs FA4: 0.574
+  FA3 vs FA4: 0.223
+  --> Group mean similarity: 0.420
+
+[Distributed Training]
+  DT1 vs DT2: 0.606
+  DT1 vs DT3: 0.361
+  DT1 vs DT4: 0.436
+  DT2 vs DT3: 0.401
+  DT2 vs DT4: 0.248
+  DT3 vs DT4: 0.203
+  --> Group mean similarity: 0.376
+
+[Alignment]
+  AL1 vs AL2: 0.499
+  AL1 vs AL3: 0.169
+  AL1 vs AL4: 0.188
+  AL2 vs AL3: 0.247
+  AL2 vs AL4: 0.208
+  AL3 vs AL4: 0.152
+  --> Group mean similarity: 0.244
+
+[Adversarial (same term, different meaning)]
+  ADV1 vs ADV2: 0.374
+  ADV1 vs ADV3: 0.173
+  ADV2 vs ADV3: 0.340
+  --> Group mean similarity: 0.296
+
+[Paraphrase (different words, same meaning)]
+  PARA1 vs PARA2: 0.653
+  PARA1 vs PARA3: 0.439
+  PARA2 vs PARA3: 0.569
+  --> Group mean similarity: 0.554
+
+[Cross-group: Flash Attention vs Distributed Training]
+  Mean cross-group similarity: 0.224
+
+[Cross-group: Flash Attention vs Alignment]
+  Mean cross-group similarity: 0.164
+
+======================================================================
+DIAGNOSTIC QUESTIONS
+======================================================================
+
+Q1: Does 'Attention is all you need' (paper title) cluster with Flash Attention?
+  ADV1 vs ADV2: 0.374  (want: LOW)
+  ADV1 vs ADV3: 0.173  (want: LOW)
+  ADV2 vs ADV3: 0.340  (want: HIGH)
+
+Q2: Can the model bridge paraphrase -- 'HBM round trips' vs 'memory access overhead'?
+  PARA1 vs PARA2: 0.653  (want: HIGH)
+  PARA1 vs PARA3: 0.439  (want: HIGH)
+  PARA2 vs PARA3: 0.569  (want: HIGH)
+
+Q3: Does Flash Attention prose (FA1-FA4) cluster more tightly than cross-group?
+  Within FA group mean: 0.420
+  FA vs DT cross mean:  0.224
+  Separation ratio: 1.9x
+
+======================================================================
+MODEL COMPARISON SUMMARY
+======================================================================
+Metric                                          MiniLM    MPNet
+-----------------------------------------------------------------
+  FA group mean (want HIGH)                      0.490    0.560
+  ADV1 vs ADV2 -- paper title (want LOW)         0.124    0.374
+  PARA1 vs PARA2 -- paraphrase (want HIGH)       0.510    0.653
+  FA1 vs DT1 -- cross-group (want LOW)           0.168    0.192
+
+Record these numbers in phase12/notes/embeddings-analysis.md
+Include: which model handles paraphrase better, and what this
+tells you about chunking strategy for the RAG pipeline.
