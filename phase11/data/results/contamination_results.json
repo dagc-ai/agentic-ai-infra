@@ -1,0 +1,240 @@
+{
+  "phase": "11",
+  "variant_tested": "DPO",
+  "n_tested": 10,
+  "average_delta": 0.15,
+  "contamination_count": 0,
+  "stable_count": 4,
+  "results": [
+    {
+      "prompt_id": "gpu_001",
+      "variant": "DPO",
+      "original_prompt": "Explain what arithmetic intensity is and why it determines whether a GPU kernel is memory-bandwidth bound or compute bound.",
+      "rephrased_prompt": "What does the ratio of floating point operations to bytes transferred tell you about a GPU kernel's performance bottleneck, and what term describes this ratio?",
+      "response": "Arithmetic intensity is the ratio of floating point operations performed to bytes of data read from memory. It is calculated as FLOPs / bytes. For a matrix multiply: FLOPs = 2 \u00d7 N^3 (each of N^2 output elements requires N^2 \u00d7 2 FLOPs), bytes = 2 \u00d7 N^2 \u00d7 4 bytes (read N^2 elements \u00d7 4 bytes each \u00d7 2 passes). Intensity = 2N \u00d7 8 bytes / FLOPs = 16N / N^3 bytes/FLOP. As N grows, intensity approaches 0 \u2014 the operation becomes memory-bandwidth bound regardless of compute speed. For a naive matmul with N=1024: 2 \u00d7 1024^3 FLOPs / 2 \u00d7 1024^2 \u00d7 4 bytes = 0.0625 bytes/FLOP. This is below the ridge point (0.25 bytes/FLOP for an RTX 4090) \u2014 every operation reads from HBM, making the kernel memory-bound. The same calculation for a tiled matmul with optimal tiling shows intensity above the ridge point, making it compute-bound. The arithmetic intensity formula applies to any kernel: FLOPs / bytes determines whether the bottleneck is memory or compute. The ridge point is the boundary \u2014 below it, memory wins; above it, compute wins. The boundary shifts with hardware (different memory bandwidth, compute throughput)",
+      "original_scores": {
+        "technical_accuracy": 2,
+        "calibration": 2,
+        "mechanistic_depth": 3,
+        "audience_calibration": 4
+      },
+      "rephrased_scores": {
+        "technical_accuracy": 2,
+        "calibration": 3,
+        "mechanistic_depth": 4,
+        "audience_calibration": 4
+      },
+      "original_mean": 2.75,
+      "rephrased_mean": 3.25,
+      "delta": 0.5,
+      "signal": "rephrased better"
+    },
+    {
+      "prompt_id": "kernel_002",
+      "variant": "DPO",
+      "original_prompt": "Why does naive attention have O(N squared) memory complexity and what specific algorithmic change does Flash Attention make to reduce this?",
+      "rephrased_prompt": "Walk through why storing attention weights for a sequence of length N requires memory that grows quadratically, and describe the key insight that allows Flash Attention to avoid this.",
+      "response": "Naive attention computes a full NxN attention score matrix: for a sequence of length N, it must hold all N squared attention scores in HBM simultaneously. For N=100,000: 100M x 100M = 10GB of attention scores alone. This is the memory bottleneck that Flash Attention solves. Flash Attention tiles the computation: instead of one 100M x 100M matrix, it maintains two tiles of size BLOCK_M (typically 64 or 128) and computes attention scores in tiles. It maintains only two tile-sized matrices in HBM at any given time \u2014 O(N) total memory, not O(N squared). The tradeoff is that the computation is no longer a simple matrix multiply but a tiled loop with intermediate writes to SRAM. The memory reduction is the fundamental insight: the algorithmic change is not a hardware innovation but a data layout change. The performance benefit comes from keeping working sets small enough to fit in SRAM. The same principle applies to all tiling-based optimizations in ML: the insight is not 'use more hardware' but'reduce the working set size'. Flash Attention is the canonical example of this principle in action. It has been adopted in every major ML framework and is the default attention implementation in vLLM. The memory complexity reduction is the fundamental contribution, not the specific kernel implementation details. The kernel implementation is engineering; the insight is algorithmic. The same principle applies to quantization (reduce precision to reduce memory),",
+      "original_scores": {
+        "technical_accuracy": 2,
+        "calibration": 2,
+        "mechanistic_depth": 3,
+        "audience_calibration": 4
+      },
+      "rephrased_scores": {
+        "technical_accuracy": 2,
+        "calibration": 2,
+        "mechanistic_depth": 2,
+        "audience_calibration": 4
+      },
+      "original_mean": 2.75,
+      "rephrased_mean": 2.5,
+      "delta": -0.25,
+      "signal": "mild drop"
+    },
+    {
+      "prompt_id": "dist_001",
+      "variant": "DPO",
+      "original_prompt": "Explain Ring AllReduce step by step -- what each GPU sends, what it receives, and why bus bandwidth utilization approaches 100 percent as the ring size grows.",
+      "rephrased_prompt": "Describe the collective communication algorithm where GPUs are arranged in a circular topology for gradient aggregation -- what data moves at each step and why the algorithm becomes more bandwidth-efficient at larger scale.",
+      "response": "Ring AllReduce is a collective communication algorithm where N GPUs form a logical ring. Each step, one GPU is the 'active' node and sends its gradient chunk to the next node in the ring. The chunk travels through the ring until it reaches the root node, which receives the final chunk. The root then broadcasts its own chunk back through the ring. This pattern repeats until all N-1 steps complete. Every GPU sends and receives exactly N-1 chunks, each of size tensor_size / N. Total bytes sent by each GPU: 2 \u00d7 (N-1) \u00d7 tensor_size / N \u2248 2 \u00d7 tensor_size. Total bytes sent across the ring: 2 \u00d7 N \u00d7 tensor_size / N = 2 \u00d7 tensor_size. The algorithm is bandwidth-optimal \u2014 it uses the full ring bandwidth for every chunk. As the ring size grows, the algorithm approaches 100% bus bandwidth utilization because every link in the ring is active simultaneously. With 4 GPUs, each GPU sends and receives 3 chunks, using 3/4 of the ring bandwidth. With 8 GPUs, each GPU sends and receives 7 chunks, using 7/8 of the ring bandwidth. At 4096 GPUs, each GPU sends and receives 4095 chunks \u2014 the ring is almost fully utilized at every step. This is why large-scale training clusters use ring AllReduce: it is the algorithm that allows 1000+ GPU training to complete in reasonable time despite the communication overhead",
+      "original_scores": {
+        "technical_accuracy": 1,
+        "calibration": 1,
+        "mechanistic_depth": 2,
+        "audience_calibration": 3
+      },
+      "rephrased_scores": {
+        "technical_accuracy": 2,
+        "calibration": 2,
+        "mechanistic_depth": 2,
+        "audience_calibration": 4
+      },
+      "original_mean": 1.75,
+      "rephrased_mean": 2.5,
+      "delta": 0.75,
+      "signal": "rephrased better"
+    },
+    {
+      "prompt_id": "inf_001",
+      "variant": "DPO",
+      "original_prompt": "Explain the KV cache -- what it stores, why it grows with sequence length, and what GPU memory constraint it creates at 100K context.",
+      "rephrased_prompt": "During autoregressive generation, what intermediate tensors must be retained from previous tokens, how does the size of this storage scale with context length, and what does this imply for GPU memory at very long sequences?",
+      "response": "The KV cache stores the output of each layer's key and value projections, which are computed once and reused throughout the forward pass. For a transformer with N layers, each layer projects the input to a D_HEAD-dimensional key space and a D_HEAD-dimensional value space. At batch size 1, sequence length 100K, and D_HEAD=64, the KV cache for a single forward pass requires 100,000 \u00d7 N \u00d7 (D_HEAD \u00d7 D_HEAD) bytes. For Llama 3.1 8B (N=32), at D_HEAD=64: 100,000 \u00d7 32 \u00d7 64 \u00d7 64 = 8.1 GiB. At batch size 1, this is the dominant memory consumer. The KV cache grows linearly with sequence length and linearly with number of layers. At batch size 1, the KV cache is the ceiling for maximum context length regardless of model size. For Llama 3.1 70B (N=32 \u00d7 2), the same calculation yields 16.2 GiB \u2014 still below the 80GB H100 limit but leaving no headroom for other working sets. This is why 100K context is the practical ceiling for Llama 3.1 8B on a single H100, not a theoretical limit. The KV cache is the concrete mechanism that makes 100K context physically impossible at batch size 1. The model size (70B parameters) is not",
+      "original_scores": {
+        "technical_accuracy": 2,
+        "calibration": 2,
+        "mechanistic_depth": 3,
+        "audience_calibration": 4
+      },
+      "rephrased_scores": {
+        "technical_accuracy": 2,
+        "calibration": 2,
+        "mechanistic_depth": 3,
+        "audience_calibration": 4
+      },
+      "original_mean": 2.75,
+      "rephrased_mean": 2.75,
+      "delta": 0.0,
+      "signal": "stable"
+    },
+    {
+      "prompt_id": "arch_002",
+      "variant": "DPO",
+      "original_prompt": "What is Grouped Query Attention, how does it differ from Multi-Head Attention, and what is the direct impact on KV cache size for a 70B model at 100K context?",
+      "rephrased_prompt": "Describe the attention variant where query heads outnumber key-value heads, contrast it with the standard approach where all head types are equal in number, and quantify what this means for memory usage during long-context inference on a large model.",
+      "response": "Multi-Head Attention (MHA) applies multiple independent attention heads in parallel, each with its own Q, K, V projections and softmax. This allows the model to attend to different aspects of the input simultaneously. Grouped Query Attention (GQA) groups multiple query tiles into a single attention head. Instead of one head per query tile, all tiles in a group share the same Q projection matrix. The key insight is that Q is the only projection that must be recomputed per attention head \u2014 K and V are already computed for the full sequence. By sharing Q across many query tiles, GQA reduces the total number of Q projections that must be stored in HBM. For a 70B model at 100K context, naive MHA requires 100K Q projections (one per query tile). GQA with 8 query tiles per head reduces this to approximately 12.5K Q projections \u2014 a 8x reduction in Q projection storage. The KV cache size is determined by the number of K and V tiles, which is independent of Q projection count. The 70B model at 100K context requires approximately 1.4 GiB of KV cache per head regardless of Q projection count. GQA reduces Q projection storage but does not change KV cache size. The 8x reduction in Q projection storage is the direct benefit of GQA for memory efficiency. Llama 3.1 70B AWQ 8B with GQA achieved 100",
+      "original_scores": {
+        "technical_accuracy": 1,
+        "calibration": 1,
+        "mechanistic_depth": 2,
+        "audience_calibration": 2
+      },
+      "rephrased_scores": {
+        "technical_accuracy": 2,
+        "calibration": 2,
+        "mechanistic_depth": 2,
+        "audience_calibration": 3
+      },
+      "original_mean": 1.5,
+      "rephrased_mean": 2.25,
+      "delta": 0.75,
+      "signal": "rephrased better"
+    },
+    {
+      "prompt_id": "ft_001",
+      "variant": "DPO",
+      "original_prompt": "Explain the LoRA matrix decomposition -- what W plus BA means, why rank r determines the capacity of the update, and why this works for behavioral fine-tuning.",
+      "rephrased_prompt": "How does Low-Rank Adaptation represent weight updates as a product of two smaller matrices, what controls the expressiveness of this representation, and why is a low-dimensional update sufficient for teaching a model new behaviors?",
+      "response": "LoRA (Low-Rank Attention) decomposes a standard attention score matrix Q @ K^T into three matrices: W (a learned low-rank matrix), B (a learned bias matrix), and A (a learned attention matrix). The full score is computed as: score = W @ A @ K^T + B @ Q. The key insight is that when r is small (e.g., r=8), the low-rank matrix W @ A has a dimensionality of (d_head, r) \u00d7 (r, d_head) \u2014 a total of 2r \u00d7 d_head parameters, rather than the original d_head \u00d7 d_head. This reduces the parameter count by a factor of r \u00d7 d_head. The update target is W @ A, which has only 2r \u00d7 d_head parameters. When the target model is frozen, only these 2r \u00d7 d_head parameters are updated during fine-tuning. The A matrix is computed from the original Q and K matrices via a matrix multiplication that is stable and well-behaved. This works for behavioral fine-tuning because the target model's weights are frozen \u2014 only the LoRA parameters are updated. The A matrix is computed from the target model's weights, so the update is still constrained by the target model's architecture. The capacity of the update is determined by r: larger r means more parameters can be updated, but also means more data must be stored in A (which grows as r \u00d7 d",
+      "original_scores": {
+        "technical_accuracy": 1,
+        "calibration": 1,
+        "mechanistic_depth": 2,
+        "audience_calibration": 3
+      },
+      "rephrased_scores": {
+        "technical_accuracy": 1,
+        "calibration": 1,
+        "mechanistic_depth": 2,
+        "audience_calibration": 3
+      },
+      "original_mean": 1.75,
+      "rephrased_mean": 1.75,
+      "delta": 0.0,
+      "signal": "stable"
+    },
+    {
+      "prompt_id": "ft_005",
+      "variant": "DPO",
+      "original_prompt": "Why did DPO largely replace PPO-based RLHF in practice -- what specific complexity and instability problems does DPO eliminate?",
+      "rephrased_prompt": "What practical engineering problems made reinforcement learning from human feedback difficult to run at scale, and how did Direct Preference Optimization sidestep those problems?",
+      "response": "PPO-based RLHF is unstable at scale. The PPO objective is a max-likelihood loss that pushes the model to maximize the probability of the target token given the prompt. However, this objective is not aligned with the downstream task when the target token is not the correct answer. The model learns to predict the target token regardless of whether it is correct, because predicting the target token is easy and the loss is large. This causes the model to diverge from the data distribution and produce outputs that are semantically correct but factually incorrect. The divergence is amplified by the PPO update rule, which rescales the policy loss by a ratio of old to new policy probabilities. When the target token is rare, the old policy probability is small and the rescaling factor is large, causing the loss to grow rapidly and the model to move far in a single step. This instability requires careful learning rate scheduling, batch size tuning, and temperature annealing to stabilize. DPO (Data Parallel Optimizer) eliminates these problems by running multiple parallel training processes on different random samples of the data, averaging their gradients, and applying the averaged update. The instability is not present because each process is training on a different sample and the average gradient is the correct direction regardless of target token frequency. The mechanism is identical to how data parallelism stabilizes standard training: the instability is not a property of the objective function itself, but of the single-process optimization dynamics that DPO eliminates. DPO was first described in",
+      "original_scores": {
+        "technical_accuracy": 1,
+        "calibration": 1,
+        "mechanistic_depth": 1,
+        "audience_calibration": 2
+      },
+      "rephrased_scores": {
+        "technical_accuracy": 1,
+        "calibration": 1,
+        "mechanistic_depth": 2,
+        "audience_calibration": 2
+      },
+      "original_mean": 1.25,
+      "rephrased_mean": 1.5,
+      "delta": 0.25,
+      "signal": "rephrased better"
+    },
+    {
+      "prompt_id": "arch_001",
+      "variant": "DPO",
+      "original_prompt": "Explain RoPE -- what problem it solves compared to learned absolute position embeddings and how encoding position as a rotation enables context length extrapolation.",
+      "rephrased_prompt": "What limitation of fixed learned position tables motivated Rotary Position Embedding, and what property of representing position as a rotation applied to query and key vectors allows the model to generalize to sequence lengths beyond its training distribution?",
+      "response": "RoPE (Relative Position Embeddings) is a position encoding mechanism that represents each token's position relative to its neighbors rather than as an absolute index. In standard learned absolute position embeddings (PEs), each token's embedding is a learned vector that depends on its absolute position in the sequence. For a 100K context window, the embedding matrix is 100K x D_HEAD \u2014 one vector per token. This grows quadratically with sequence length and is the primary memory bottleneck in long-context models. RoPE represents each token's position as a learned vector (d_head) times a learned relative position matrix (D_HEAD x D_HEAD). The relative matrix is computed as a function of the absolute positions of the two tokens being compared (e.g., abs(i) - abs(j)). The key insight is that the relative position between two tokens is the same regardless of where they appear in the sequence. This means the relative matrix is a small, fixed D_HEAD x D_HEAD matrix that can be computed once per token pair and reused across all sequences. The memory complexity is O(N) rather than O(N squared), enabling long-context models without the quadratic embedding matrix. The tradeoff is that RoPE requires more attention computation to compute the relative matrix \u2014 the memory savings come from reduced HBM traffic, not from reducing attention itself. Llama 3.1 8B uses RoPE with a maximum context length of 128K. Mistral 7B uses it with 128K.",
+      "original_scores": {
+        "technical_accuracy": 1,
+        "calibration": 1,
+        "mechanistic_depth": 2,
+        "audience_calibration": 3
+      },
+      "rephrased_scores": {
+        "technical_accuracy": 1,
+        "calibration": 1,
+        "mechanistic_depth": 2,
+        "audience_calibration": 3
+      },
+      "original_mean": 1.75,
+      "rephrased_mean": 1.75,
+      "delta": 0.0,
+      "signal": "stable"
+    },
+    {
+      "prompt_id": "inf_002",
+      "variant": "DPO",
+      "original_prompt": "What is PagedAttention and how does managing the KV cache like OS virtual memory increase effective batch size?",
+      "rephrased_prompt": "Describe the memory management technique in vLLM that borrows the concept of non-contiguous page allocation from operating systems -- what problem does it solve and what serving efficiency improvement does it produce?",
+      "response": "PagedAttention is vLLM's memory management system for the KV cache. It divides the KV cache into fixed-size pages (default 32MB) and manages them using a page table. When a new request arrives, vLLM checks if the KV cache already contains the required token's key and value. If they exist, the page table maps the page to a physical memory address. If not, vLLM allocates a new page from a pool of free pages. When a request completes, its pages are returned to the pool. This is analogous to how an operating system manages virtual memory: the page table maps virtual addresses to physical addresses, and the OS swaps pages between RAM and disk as needed. For vLLM, the KV cache is the working set that fits in 32GB of HBM. PagedAttention makes that 32GB usable for many more concurrent requests than a fixed-capacity cache would. Without PagedAttention, a 32GB KV cache would be exhausted after approximately 32,000 tokens (32GB / 1.33 bytes per token) regardless of how much free memory exists. With PagedAttention, the effective cache capacity scales with available HBM \u2014 a 32GB cache on 80GB of HBM can support many more concurrent requests than a 32GB cache on 32GB of HBM. This is why vLLM's effective batch size is determined by available HBM capacity rather than fixed cache size. The",
+      "original_scores": {
+        "technical_accuracy": 2,
+        "calibration": 2,
+        "mechanistic_depth": 3,
+        "audience_calibration": 4
+      },
+      "rephrased_scores": {
+        "technical_accuracy": 2,
+        "calibration": 2,
+        "mechanistic_depth": 3,
+        "audience_calibration": 4
+      },
+      "original_mean": 2.75,
+      "rephrased_mean": 2.75,
+      "delta": 0.0,
+      "signal": "stable"
+    },
+    {
+      "prompt_id": "agent_002",
+      "variant": "DPO",
+      "original_prompt": "What is RAG, what problem does it solve for LLMs with fixed training cutoffs, and what are the two components whose quality determines end-to-end RAG performance?",
+      "rephrased_prompt": "Describe the pattern of augmenting language model generation with external document retrieval -- what fundamental limitation of parametric models does it address, and what two subsystems must both work well for the overall system to produce accurate answers?",
+      "response": "RAG (Reactive Attention GPT) is a family of LLM inference models that use a small trainable prompt model to generate tokens incrementally, then use a fixed large model (the 'target model') to generate the next token in response. The key innovation is that the target model is never fully decoded \u2014 it processes one token at a time, maintaining a small KV cache that grows incrementally as tokens are generated. This solves the fixed-context problem: a 70B target model can process 100K tokens without running out of KV cache. The two quality components are: (1) the target model \u2014 a 70B model with high quality language understanding is essential for generating coherent responses. A low-quality target model produces poor output regardless of the prompt model. (2) the prompt model \u2014 a well-tuned prompt model must be able to generate high-quality tokens that the target model can build upon. A poorly trained prompt model produces suboptimal tokens that the target model must correct, degrading overall quality. Groq's RAG implementation uses Llama 3.1 8B as the target model and Mistral 7B as the prompt model. The quality of the target model is the dominant factor in RAG performance \u2014 the 70B target model is the production-quality model that generates the actual output. The prompt model is a supporting cast that enables the target model to operate within the fixed-context constraint. The quality of the target model is what matters for production",
+      "original_scores": {
+        "technical_accuracy": 1,
+        "calibration": 1,
+        "mechanistic_depth": 2,
+        "audience_calibration": 3
+      },
+      "rephrased_scores": {
+        "technical_accuracy": 1,
+        "calibration": 1,
+        "mechanistic_depth": 1,
+        "audience_calibration": 2
+      },
+      "original_mean": 1.75,
+      "rephrased_mean": 1.25,
+      "delta": -0.5,
+      "signal": "mild drop"
+    }
+  ]
+}
