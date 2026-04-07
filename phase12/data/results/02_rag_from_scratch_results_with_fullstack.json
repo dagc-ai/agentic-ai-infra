@@ -1,0 +1,266 @@
+[
+  {
+    "query": "How does Flash Attention reduce memory complexity?",
+    "type": "direct",
+    "expected_sources": [
+      "phase3-flash-attention-explained-2.md"
+    ],
+    "retrieved_sources": [
+      "phase3-flash-attention-explained-2.md",
+      "phase3-flash-attention-explained-2.md",
+      "phase2-cuda-kernels.md",
+      "full-stack-view.md",
+      "full-stack-view.md"
+    ],
+    "retrieval_scores": [
+      0.6948613524436951,
+      0.5736318826675415,
+      0.4913962185382843,
+      0.4415641129016876,
+      0.4352163076400757
+    ],
+    "hit_rate": 1.0,
+    "top1_correct": true,
+    "answer": "# How Flash Attention Reduces Memory Complexity\n\nFlash Attention reduces memory complexity from **O(N\u00b2) to O(N)** through the **online softmax algorithm** with tiling.\n\n## The Problem with Naive Attention\n\nStandard attention computes:\n```\nAttention(Q, K, V) = softmax(Q @ K^T / sqrt(d)) @ V\n```\n\nNaive implementations materialize the full N\u00d7N attention score matrix in HBM (High Bandwidth Memory):\n- At N=4,096: 64MB per head per layer\n- At N=32K: ~4GB per head per layer  \n- At N=100K: ~40GB per head per layer (physically impossible)\n\nThe mathematical bottleneck: softmax requires a global max and global sum across the entire row before normalization\u2014you must see the whole N\u00d7N matrix first.\n\n## Flash Attention's Solution: Incremental Softmax\n\nFlash Attention's key insight is that **softmax can be computed incrementally** without materializing the full matrix.\n\nInstead of storing the entire N\u00d7N matrix, Flash Attention:\n\n1. **Tiles the computation**: Streams Q, K, V tiles from HBM into fast SRAM one at a time\n2. **Maintains running statistics**: Keeps only two scalars in registers:\n   - `m_i`: running maximum\n   - `l_i`: running sum\n\n3. **Updates incrementally** as each tile arrives:\n   ```\n   m_new = max(m_old, tile_max)\n   acc = acc * exp(m_old - m_new) + exp(scores - m_new) @ V_tile\n   l_new = l_old * exp(m_old - m_new) + sum(exp(scores - m_new))\n   ```\n\n4. **Produces the final result**: `output = acc / l_final`\n\nThe result is **mathematically identical to full softmax** but requires only O(N) memory because the full N\u00d7N matrix never exists in memory at any point.",
+    "retrieval_ms": 1939.6569728851318,
+    "generation_ms": 5186.328649520874
+  },
+  {
+    "query": "What is Ring AllReduce and how does it synchronize gradients?",
+    "type": "direct",
+    "expected_sources": [
+      "phase4-distributed-training-interconnects-2.md"
+    ],
+    "retrieved_sources": [
+      "phase4-distributed-training-interconnects-2.md",
+      "full-stack-view.md",
+      "full-stack-view.md",
+      "phase2-cuda-kernels.md",
+      "phase1-gpu-architecture-primer.md"
+    ],
+    "retrieval_scores": [
+      0.6709331274032593,
+      0.5190684795379639,
+      0.46817469596862793,
+      0.3781697750091553,
+      0.343559592962265
+    ],
+    "hit_rate": 1.0,
+    "top1_correct": true,
+    "answer": "# Ring AllReduce: Gradient Synchronization\n\nBased on the provided context, Ring AllReduce is the standard algorithm for synchronizing gradients across multiple GPUs during distributed training.\n\n## What It Does\n\nRing AllReduce averages gradients across all GPUs (ranks) so that each GPU receives the element-wise sum (or mean) of gradients computed on different data slices. This is necessary because in data parallelism, each GPU computes gradients from different data, and these gradients must be averaged before optimizer steps, or the model copies will drift apart and training becomes mathematically meaningless.\n\n## How It Works\n\nRing AllReduce operates in **two phases**:\n\n### Phase 1 \u2014 Reduce-Scatter (N-1 steps)\n- GPUs are arranged in a logical ring\n- Each GPU sends one chunk forward and receives one chunk from behind\n- Received values are accumulated (summed) into the local copy\n- The send index rotates each step so every chunk visits every GPU exactly once\n- After N-1 steps, each GPU holds one fully-summed chunk \u2014 the complete sum of that chunk position across all ranks\n\n### Phase 2 \u2014 AllGather (N-1 steps)\n- Each GPU broadcasts its fully-summed chunk around the ring\n- No accumulation occurs \u2014 chunks simply overwrite\n- After N-1 steps, every GPU holds all fully-summed chunks and the complete averaged gradient tensor\n\n## Synchronization Constraint\n\nAllReduce is a **hard synchronization barrier** \u2014 every rank must participate before any rank receives the result. The slowest rank determines when all others can proceed. This makes hardware uniformity and load balancing critical at scale.",
+    "retrieval_ms": 227.32973098754883,
+    "generation_ms": 5489.949941635132
+  },
+  {
+    "query": "Why does memory bandwidth limit attention at long sequences?",
+    "type": "paraphrase",
+    "expected_sources": [
+      "phase3-flash-attention-explained-2.md",
+      "phase1-gpu-architecture-primer.md"
+    ],
+    "retrieved_sources": [
+      "phase3-flash-attention-explained-2.md",
+      "phase2-cuda-kernels.md",
+      "phase2-cuda-kernels.md",
+      "phase3-flash-attention-explained-2.md",
+      "phase1-gpu-architecture-primer.md"
+    ],
+    "retrieval_scores": [
+      0.5465289354324341,
+      0.4879471957683563,
+      0.4522927403450012,
+      0.43696165084838867,
+      0.4086145758628845
+    ],
+    "hit_rate": 1.0,
+    "top1_correct": true,
+    "answer": "Based on the provided context:\n\nMemory bandwidth limits attention at long sequences because **naive attention implementations must materialize and repeatedly move the full N\u00d7N attention matrix to and from HBM (main GPU memory)**.\n\nSpecifically:\n\n1. **The O(N\u00b2) memory problem**: Standard attention computes S = Q @ K^T, creating an N\u00d7N score matrix. At long sequences:\n   - N=4,096: 64MB per head per layer\n   - N=32K: ~4GB per head per layer\n   - N=100K: ~40GB per head per layer\n\n2. **Multiple memory round trips**: The naive approach requires:\n   - Writing the N\u00d7N matrix to HBM\n   - Reading it back for softmax computation\n   - Writing softmax output back to HBM\n   - Reading it again for the weighted sum with V\n\n3. **The mathematical constraint**: Softmax requires seeing the entire row to compute global max and global sum before normalizing. This creates a fundamental dependency on having the full matrix in memory first.\n\nAs stated in the context: *\"At N=100K: attention matrix = ~40GB per head per layer \u2014 physically impossible\"* without algorithmic changes.\n\n**Flash Attention solves this** by using online softmax with tiling \u2014 maintaining only running max and sum scalars in fast SRAM while streaming tiles through, reducing memory complexity from O(N\u00b2) to O(N) and eliminating the bandwidth bottleneck entirely.",
+    "retrieval_ms": 403.7439823150635,
+    "generation_ms": 4616.535902023315
+  },
+  {
+    "query": "What keeps GPUs from being fully utilized during inference?",
+    "type": "paraphrase",
+    "expected_sources": [
+      "phase1-gpu-architecture-primer.md",
+      "phase5-inference-infrastructure.md"
+    ],
+    "retrieved_sources": [
+      "phase6-hardware-architectures.md",
+      "full-stack-view.md",
+      "phase4-distributed-training-interconnects-2.md",
+      "phase1-gpu-architecture-primer.md",
+      "phase1-gpu-architecture-primer.md"
+    ],
+    "retrieval_scores": [
+      0.5038028955459595,
+      0.4957793354988098,
+      0.4901345670223236,
+      0.4838865101337433,
+      0.4829973578453064
+    ],
+    "hit_rate": 0.5,
+    "top1_correct": false,
+    "answer": "Based on the provided context, GPUs are not fully utilized during inference because **inference is memory-bound, not compute-bound**.\n\nSpecifically:\n\n1. **Low arithmetic intensity**: During inference at batch size 1, you process one token at a time. Weight matrices are large, but the effective matrix dimension is tiny. This means you move gigabytes of weights through the memory bus to perform only a trivial amount of arithmetic on each one.\n\n2. **Result**: Inference at batch size 1 achieves only **5\u201310% of theoretical TFLOPS utilization** regardless of chip power, as stated in the context.\n\nThe fundamental issue is that the binding constraint during inference is memory bandwidth, not compute capacity. The GPU's tensor cores sit idle waiting for data to arrive from memory, rather than being saturated with computational work.\n\nThis is one of the reasons alternative architectures like Groq's approach (with SRAM-only on-chip memory and deterministic execution) can be more efficient for inference workloads \u2014 they eliminate the latency penalties of moving data on and off chip, keeping compute units better fed with data.",
+    "retrieval_ms": 437.56699562072754,
+    "generation_ms": 3838.901996612549
+  },
+  {
+    "query": "How does the KV cache problem connect to the memory hierarchy?",
+    "type": "cross-document",
+    "expected_sources": [
+      "phase5-inference-infrastructure.md",
+      "phase1-gpu-architecture-primer.md"
+    ],
+    "retrieved_sources": [
+      "full-stack-view.md",
+      "phase8-modern-llm-architecture.md",
+      "phase11-evals-mental-model.md",
+      "phase3-flash-attention-explained-2.md",
+      "phase5-inference-infrastructure.md"
+    ],
+    "retrieval_scores": [
+      0.5536242723464966,
+      0.5318946838378906,
+      0.46590808033943176,
+      0.4162876009941101,
+      0.3943811058998108
+    ],
+    "hit_rate": 0.5,
+    "top1_correct": false,
+    "answer": "Based on the provided context, the KV cache problem connects to the memory hierarchy through the fundamental principle established in Phase 0-1:\n\n**The Core Connection:**\n\nThe memory hierarchy (registers \u2192 SRAM \u2192 HBM) has a ~100x cost increase at every level. Where data lives determines access speed. The KV cache, which grows with context length and concurrent requests, must physically reside in HBM (main GPU memory) during inference.\n\n**The Practical Problem:**\n\nFrom Phase 5, at 80GB VRAM with Mistral 7B:\n- Model weights: 13.51 GiB\n- KV cache pool: 57.41 GiB (the majority of available memory)\n\nAt longer contexts, this becomes severe. From Phase 8, at 128K context with batch=10:\n- Llama 8B with GQA: 172GB of KV cache alone\n- Hypothetical MHA equivalent: 687GB\n\n**Why This Matters:**\n\nThe KV cache problem is fundamentally a memory hierarchy problem because:\n1. Every token generated requires attention computations over all previous tokens\n2. The Key and Value matrices must stay in fast memory (HBM) to avoid recomputation\n3. The cache grows linearly with context length and concurrency, consuming the fastest accessible memory tier\n4. This limits how many concurrent requests can fit, directly constraining GPU utilization\n\nThe context notes that solutions like PagedAttention in vLLM address this by treating KV cache like OS virtual memory\u2014managing the expensive HBM resource strategically, just as the tiling patterns in earlier phases manage the memory hierarchy.",
+    "retrieval_ms": 451.49993896484375,
+    "generation_ms": 4995.749711990356
+  },
+  {
+    "query": "What is the relationship between LoRA rank and model quality?",
+    "type": "direct",
+    "expected_sources": [
+      "phase9-fine-tuning-mental-model.md"
+    ],
+    "retrieved_sources": [
+      "phase9-fine-tuning-mental-model.md",
+      "phase9-fine-tuning-mental-model.md",
+      "phase9-fine-tuning-mental-model.md",
+      "phase10-alignment-rlhf-dpo-reward-modeling.md",
+      "phase11-evals-mental-model.md"
+    ],
+    "retrieval_scores": [
+      0.39149850606918335,
+      0.3906213343143463,
+      0.3833979368209839,
+      0.3496767580509186,
+      0.33610934019088745
+    ],
+    "hit_rate": 1.0,
+    "top1_correct": true,
+    "answer": "Based on the provided context, here is the relationship between LoRA rank and model quality:\n\n**Empirical Finding from Rank Sensitivity Experiment:**\n\nThe context shows that loss improves continuously with rank on the AI infrastructure dataset tested. In the Exercise 3 experiment, five adapters were trained at ranks r=4 through r=64 with identical data and hyperparameters:\n\n| Rank | Final Loss |\n|------|-----------|\n| r=4 | 1.8055 |\n| r=8 | 1.6771 |\n| r=16 | 1.5330 |\n| r=32 | 1.3784 |\n| r=64 | 1.1982 |\n\n**Key Learning:**\n\nThe expected plateau at r=16 did not occur. Loss continued improving at higher ranks. The context notes that \"Technical AI infrastructure content \u2014 specific numbers, reasoning patterns, hardware vocabulary \u2014 has higher intrinsic dimensionality than simple instruction-following tasks.\"\n\n**Practical Recommendation:**\n\nThe context identifies r=32 as the practical sweet spot for this dataset, offering \"the best loss-to-parameter tradeoff before adapter size doubles again with marginal return.\"\n\n**Important Note:**\n\nThe context emphasizes that loss metrics alone are insufficient for evaluating quality. It states that \"Loss going down does not mean behavior improved\" \u2014 qualitative comparisons of actual model outputs are necessary to determine if higher rank genuinely improves factual accuracy and reduces hallucinations.",
+    "retrieval_ms": 118.33715438842773,
+    "generation_ms": 3441.490888595581
+  },
+  {
+    "query": "Why did DPO replace PPO-based RLHF in practice?",
+    "type": "direct",
+    "expected_sources": [
+      "phase10-alignment-rlhf-dpo-reward-modeling.md"
+    ],
+    "retrieved_sources": [
+      "phase10-alignment-rlhf-dpo-reward-modeling.md",
+      "phase10-alignment-rlhf-dpo-reward-modeling.md",
+      "phase11-evals-mental-model.md",
+      "phase10-alignment-rlhf-dpo-reward-modeling.md",
+      "phase11-evals-mental-model.md"
+    ],
+    "retrieval_scores": [
+      0.343359112739563,
+      0.33795252442359924,
+      0.3314465582370758,
+      0.3308302164077759,
+      0.31130924820899963
+    ],
+    "hit_rate": 1.0,
+    "top1_correct": true,
+    "answer": "The provided context does not contain information explaining why DPO replaced PPO-based RLHF in practice.\n\nThe context does describe **what DPO is** \u2014 it explains that \"DPO eliminates the reward model by rearranging the RLHF objective mathematically\" and provides the mathematical formulation. It also mentions that DPO is now \"standard\" and part of a \"two-step training pipeline (SFT then DPO)\" that is \"table stakes\" for enterprise deployments.\n\nHowever, the context does not discuss the historical reasons, practical trade-offs, or comparative advantages that led to DPO becoming the preferred approach over PPO-based RLHF. To answer that question, I would need additional context that directly addresses this adoption narrative.",
+    "retrieval_ms": 124.13215637207031,
+    "generation_ms": 2462.7091884613037
+  },
+  {
+    "query": "What does LLM-as-judge measure and what are its failure modes?",
+    "type": "direct",
+    "expected_sources": [
+      "phase11-evals-mental-model.md"
+    ],
+    "retrieved_sources": [
+      "phase11-evals-mental-model.md",
+      "phase11-evals-mental-model.md",
+      "phase10-alignment-rlhf-dpo-reward-modeling.md",
+      "phase9-fine-tuning-mental-model.md",
+      "phase11-evals-mental-model.md"
+    ],
+    "retrieval_scores": [
+      0.43913981318473816,
+      0.4182378053665161,
+      0.4072398245334625,
+      0.3635134994983673,
+      0.34508347511291504
+    ],
+    "hit_rate": 1.0,
+    "top1_correct": true,
+    "answer": "Based on the provided context, here is what LLM-as-judge measures and its failure modes:\n\n## What LLM-as-Judge Measures\n\nLLM-as-judge scores model responses across multiple dimensions:\n- Technical accuracy\n- Calibration\n- Mechanistic depth\n- Audience calibration\n- Hallucination avoidance\n- Conciseness\n\n## Calibration and Reliability\n\nThe judge itself must be calibrated before use. The calibration methodology involves:\n- Manually scoring 20 responses\n- Computing Pearson correlation (r) against human scores\n- Identifying divergence patterns\n- Tightening rubric anchors\n\nIn the documented example, the judge achieved:\n- **Overall Pearson r = 0.861** (passing the 0.75 threshold)\n- **Overall MAE = 0.562**\n- Individual dimension r values ranged from 0.720 to 0.829\n\n## Failure Modes of LLM-as-Judge\n\nThe primary failure mode documented is:\n- **Positive bias**: In the calibration test, the judge scored higher than humans on 17/20 responses (85% positive bias)\n- **Root cause**: The score-2 anchor on technical accuracy was too forgiving, allowing responses that got core definitions wrong to still score acceptably\n\nThis was remedied by tightening the rubric (v1.1) to enforce stricter penalties for fundamental errors.\n\n## Critical Limitation\n\nThe context emphasizes that **an uncalibrated judge inside an autonomous feedback loop reinforces the failure modes it was supposed to catch**. Calibration is a load-bearing component, not optional.",
+    "retrieval_ms": 108.3531379699707,
+    "generation_ms": 5021.811962127686
+  },
+  {
+    "query": "What is the binding constraint in distributed training at scale?",
+    "type": "abstract",
+    "expected_sources": [
+      "phase4-distributed-training-interconnects-2.md",
+      "full-stack-view.md"
+    ],
+    "retrieved_sources": [
+      "full-stack-view.md",
+      "full-stack-view.md",
+      "phase4-distributed-training-interconnects-2.md",
+      "full-stack-view.md",
+      "phase10-alignment-rlhf-dpo-reward-modeling.md"
+    ],
+    "retrieval_scores": [
+      0.4790840446949005,
+      0.475019246339798,
+      0.45330479741096497,
+      0.4507406949996948,
+      0.41940656304359436
+    ],
+    "hit_rate": 1.0,
+    "top1_correct": true,
+    "answer": "Based on the provided context, the binding constraint in distributed training at scale is **interconnect bandwidth** \u2014 the speed at which data moves between GPUs and between nodes.\n\nFrom the context:\n\n> \"At this layer the binding constraint shifts from HBM bandwidth to interconnect bandwidth, the speed at which data moves between GPUs and between nodes.\"\n\nThe context provides specific bandwidth measurements:\n- NVLink (within node): 600 GB/s bidirectional\n- PCIe (within node): 64 GB/s bidirectional\n- InfiniBand (between nodes): 400 Gb/s\n\nThe key insight is that **at scale, communication overhead dominates**:\n\n> \"At 8 GPUs within a node connected by NVLink, the ratio is favorable and training stays compute-bound. Across hundreds of nodes connected by InfiniBand, communication overhead dominates and AllReduce becomes the bottleneck, not GPU utilization.\"\n\nThis constraint arises because distributed training requires gradient synchronization across GPUs after every backward pass using AllReduce, and as the number of GPUs increases, the communication cost of this synchronization becomes the limiting factor rather than raw compute throughput.",
+    "retrieval_ms": 114.66097831726074,
+    "generation_ms": 3265.6309604644775
+  },
+  {
+    "query": "Why does quantization improve throughput but not always latency?",
+    "type": "abstract",
+    "expected_sources": [
+      "phase5-inference-infrastructure.md"
+    ],
+    "retrieved_sources": [
+      "phase5-inference-infrastructure.md",
+      "phase4-distributed-training-interconnects-2.md",
+      "phase5-inference-infrastructure.md",
+      "phase5-inference-infrastructure.md",
+      "phase6-hardware-architectures.md"
+    ],
+    "retrieval_scores": [
+      0.5192011594772339,
+      0.4754440188407898,
+      0.47134488821029663,
+      0.43763720989227295,
+      0.4279574751853943
+    ],
+    "hit_rate": 1.0,
+    "top1_correct": true,
+    "answer": "Based on the provided context, quantization improves throughput but not always latency because of how it affects the roofline bottleneck:\n\n## Why Throughput Improves\n\nQuantization shrinks model weights from 16-bit floats to 4-bit integers, which:\n- Reduces model size\n- Increases how much data fits through the memory bandwidth bus per second\n- Enables faster token generation in batch/throughput scenarios\n\n## Why Latency Doesn't Always Improve\n\nThe context explicitly states:\n\n> \"As weight loading gets faster, unquantized operations become a larger fraction of total time. The roofline bottleneck shifts.\"\n\nSpecifically:\n- **Attention computation and KV cache remain in FP16** \u2014 only linear layer weights are quantized\n- As quantized weight operations get faster, the unquantized operations (attention, KV cache) become a proportionally larger part of total time\n- The bottleneck shifts from weight operations to these remaining FP16 operations\n\nThe benchmark example illustrates this: AWQ INT4 Marlin provides a 2.27x speedup on Mistral 7B but only 2.14x on Llama 3.1 8B. The reason given is that Llama's larger unquantized weights mean \"attention and unquantized operations are a larger fraction of total time = quantization benefit marginally diluted.\"\n\nSo quantization's latency benefit is limited by the fraction of computation it actually covers.",
+    "retrieval_ms": 189.6052360534668,
+    "generation_ms": 4700.314044952393
+  }
+]

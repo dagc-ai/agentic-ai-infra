@@ -1,0 +1,196 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 13950.17it/s]
+[1mMPNetModel LOAD REPORT[0m from: sentence-transformers/all-mpnet-base-v2
+Key                     | Status     |  | 
+------------------------+------------+--+-
+embeddings.position_ids | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+============================================================
+STEP 1-2: INGESTION AND CHUNKING
+============================================================
+  Loaded: phase1-gpu-architecture-primer.md (1,219 words)
+  Loaded: phase10-alignment-rlhf-dpo-reward-modeling.md (3,597 words)
+  Loaded: phase11-evals-mental-model.md (5,314 words)
+  Loaded: phase2-cuda-kernels.md (3,476 words)
+  Loaded: phase3-flash-attention-explained-2.md (1,087 words)
+  Loaded: phase4-distributed-training-interconnects-2.md (1,715 words)
+  Loaded: phase5-inference-infrastructure.md (3,123 words)
+  Loaded: phase6-hardware-architectures.md (6,475 words)
+  Loaded: phase7-model-architecture.md (4,712 words)
+  Loaded: phase8-modern-llm-architecture.md (2,600 words)
+  Loaded: phase9-fine-tuning-mental-model.md (2,317 words)
+
+Total documents: 11
+  phase1-gpu-architecture-primer.md: 4 chunks
+  phase10-alignment-rlhf-dpo-reward-modeling.md: 11 chunks
+  phase11-evals-mental-model.md: 16 chunks
+  phase2-cuda-kernels.md: 10 chunks
+  phase3-flash-attention-explained-2.md: 3 chunks
+  phase4-distributed-training-interconnects-2.md: 5 chunks
+  phase5-inference-infrastructure.md: 9 chunks
+  phase6-hardware-architectures.md: 19 chunks
+  phase7-model-architecture.md: 14 chunks
+  phase8-modern-llm-architecture.md: 8 chunks
+  phase9-fine-tuning-mental-model.md: 7 chunks
+
+Total chunks: 106
+Avg chunk size: 381 words
+
+============================================================
+STEP 3-4: EMBEDDING AND INDEXING
+============================================================
+
+Embedding 106 chunks (this takes ~30-60s on M1)...
+Batches:   0%|          | 0/4 [00:00<?, ?it/s]Batches:  25%|██▌       | 1/4 [00:01<00:03,  1.14s/it]Batches:  50%|█████     | 2/4 [00:02<00:02,  1.02s/it]Batches:  75%|███████▌  | 3/4 [00:03<00:00,  1.02it/s]Batches: 100%|██████████| 4/4 [00:03<00:00,  1.39it/s]Batches: 100%|██████████| 4/4 [00:03<00:00,  1.20it/s]
+Embedding complete: 3.3s (32 chunks/sec)
+Index built: 106 vectors
+
+============================================================
+STEP 5-7: RETRIEVAL AND GENERATION EVALUATION
+============================================================
+
+[Query 1/10] (direct)
+  Q: How does Flash Attention reduce memory complexity?
+  Retrieved: ['phase3-flash-attention-explained-2.md', 'phase3-flash-attention-explained-2.md', 'phase2-cuda-kernels.md', 'phase3-flash-attention-explained-2.md', 'phase2-cuda-kernels.md']
+  Expected:  ['phase3-flash-attention-explained-2.md']
+  Hit rate:  100% | Top-1 correct: True
+  Scores:    ['0.695', '0.574', '0.491', '0.406', '0.392']
+  Latency:   retrieval=43ms, generation=4225ms
+  Answer:    Based on the provided context, Flash Attention reduces memory complexity from O(N²) to O(N) through the following mechanism:
+
+## The Core Insight: Online Softmax
+
+Instead of materializing the full N×N...
+
+[Query 2/10] (direct)
+  Q: What is Ring AllReduce and how does it synchronize gradients?
+  Retrieved: ['phase4-distributed-training-interconnects-2.md', 'phase2-cuda-kernels.md', 'phase1-gpu-architecture-primer.md', 'phase4-distributed-training-interconnects-2.md', 'phase11-evals-mental-model.md']
+  Expected:  ['phase4-distributed-training-interconnects-2.md']
+  Hit rate:  100% | Top-1 correct: True
+  Scores:    ['0.671', '0.378', '0.344', '0.299', '0.293']
+  Latency:   retrieval=93ms, generation=5291ms
+  Answer:    # Ring AllReduce
+
+Based on the provided context, Ring AllReduce is a collective operation that averages gradients across all GPU ranks (distributed nodes) during data-parallel training.
+
+## What It Do...
+
+[Query 3/10] (paraphrase)
+  Q: Why does memory bandwidth limit attention at long sequences?
+  Retrieved: ['phase3-flash-attention-explained-2.md', 'phase2-cuda-kernels.md', 'phase2-cuda-kernels.md', 'phase3-flash-attention-explained-2.md', 'phase1-gpu-architecture-primer.md']
+  Expected:  ['phase3-flash-attention-explained-2.md', 'phase1-gpu-architecture-primer.md']
+  Hit rate:  100% | Top-1 correct: True
+  Scores:    ['0.547', '0.488', '0.452', '0.437', '0.409']
+  Latency:   retrieval=104ms, generation=5120ms
+  Answer:    Based on the provided context:
+
+Memory bandwidth limits attention at long sequences because of the **O(N²) memory complexity of naive attention implementation**.
+
+In standard (unfused) attention:
+
+1. ...
+
+[Query 4/10] (paraphrase)
+  Q: What keeps GPUs from being fully utilized during inference?
+  Retrieved: ['phase6-hardware-architectures.md', 'phase4-distributed-training-interconnects-2.md', 'phase1-gpu-architecture-primer.md', 'phase1-gpu-architecture-primer.md', 'phase6-hardware-architectures.md']
+  Expected:  ['phase1-gpu-architecture-primer.md', 'phase5-inference-infrastructure.md']
+  Hit rate:  50% | Top-1 correct: False
+  Scores:    ['0.504', '0.490', '0.484', '0.483', '0.477']
+  Latency:   retrieval=143ms, generation=3391ms
+  Answer:    Based on the provided context, GPUs are not fully utilized during inference because **inference is memory-bound, not compute-bound**.
+
+Specifically:
+
+1. **Small effective matrix dimensions**: During i...
+
+[Query 5/10] (cross-document)
+  Q: How does the KV cache problem connect to the memory hierarchy?
+  Retrieved: ['phase8-modern-llm-architecture.md', 'phase11-evals-mental-model.md', 'phase3-flash-attention-explained-2.md', 'phase5-inference-infrastructure.md', 'phase2-cuda-kernels.md']
+  Expected:  ['phase5-inference-infrastructure.md', 'phase1-gpu-architecture-primer.md']
+  Hit rate:  50% | Top-1 correct: False
+  Scores:    ['0.532', '0.466', '0.416', '0.394', '0.394']
+  Latency:   retrieval=103ms, generation=5287ms
+  Answer:    Based on the provided context, the KV cache problem connects to the memory hierarchy through the fundamental principle that **inference is a memory problem, not a compute problem**.
+
+Here's the connec...
+
+[Query 6/10] (direct)
+  Q: What is the relationship between LoRA rank and model quality?
+  Retrieved: ['phase9-fine-tuning-mental-model.md', 'phase9-fine-tuning-mental-model.md', 'phase9-fine-tuning-mental-model.md', 'phase10-alignment-rlhf-dpo-reward-modeling.md', 'phase11-evals-mental-model.md']
+  Expected:  ['phase9-fine-tuning-mental-model.md']
+  Hit rate:  100% | Top-1 correct: True
+  Scores:    ['0.391', '0.391', '0.383', '0.350', '0.336']
+  Latency:   retrieval=121ms, generation=3027ms
+  Answer:    Based on the provided context, the relationship between LoRA rank and model quality is demonstrated through a rank sensitivity experiment:
+
+**Loss improves continuously with higher rank:**
+The experim...
+
+[Query 7/10] (direct)
+  Q: Why did DPO replace PPO-based RLHF in practice?
+  Retrieved: ['phase10-alignment-rlhf-dpo-reward-modeling.md', 'phase10-alignment-rlhf-dpo-reward-modeling.md', 'phase11-evals-mental-model.md', 'phase10-alignment-rlhf-dpo-reward-modeling.md', 'phase11-evals-mental-model.md']
+  Expected:  ['phase10-alignment-rlhf-dpo-reward-modeling.md']
+  Hit rate:  100% | Top-1 correct: True
+  Scores:    ['0.343', '0.338', '0.331', '0.331', '0.311']
+  Latency:   retrieval=137ms, generation=2537ms
+  Answer:    The provided context does not contain information about why DPO replaced PPO-based RLHF in practice.
+
+The context does explain what DPO (Direct Preference Optimization) is and how it works technically...
+
+[Query 8/10] (direct)
+  Q: What does LLM-as-judge measure and what are its failure modes?
+  Retrieved: ['phase11-evals-mental-model.md', 'phase11-evals-mental-model.md', 'phase10-alignment-rlhf-dpo-reward-modeling.md', 'phase9-fine-tuning-mental-model.md', 'phase11-evals-mental-model.md']
+  Expected:  ['phase11-evals-mental-model.md']
+  Hit rate:  100% | Top-1 correct: True
+  Scores:    ['0.439', '0.418', '0.407', '0.364', '0.345']
+  Latency:   retrieval=112ms, generation=5213ms
+  Answer:    # LLM-as-Judge: Measurement and Failure Modes
+
+## What It Measures
+
+Based on the context, LLM-as-judge evaluation measures model quality across specific dimensions:
+
+**Dimensions evaluated:**
+- Techni...
+
+[Query 9/10] (abstract)
+  Q: What is the binding constraint in distributed training at scale?
+  Retrieved: ['phase4-distributed-training-interconnects-2.md', 'phase10-alignment-rlhf-dpo-reward-modeling.md', 'phase7-model-architecture.md', 'phase4-distributed-training-interconnects-2.md', 'phase7-model-architecture.md']
+  Expected:  ['phase4-distributed-training-interconnects-2.md', 'full-stack-view.md']
+  Hit rate:  50% | Top-1 correct: True
+  Scores:    ['0.453', '0.419', '0.414', '0.403', '0.389']
+  Latency:   retrieval=121ms, generation=3773ms
+  Answer:    Based on the provided context, **communication overhead** is the binding constraint in distributed training at scale.
+
+The context explicitly states:
+
+1. **AllReduce as a synchronization barrier**: "A...
+
+[Query 10/10] (abstract)
+  Q: Why does quantization improve throughput but not always latency?
+  Retrieved: ['phase5-inference-infrastructure.md', 'phase4-distributed-training-interconnects-2.md', 'phase5-inference-infrastructure.md', 'phase5-inference-infrastructure.md', 'phase6-hardware-architectures.md']
+  Expected:  ['phase5-inference-infrastructure.md']
+  Hit rate:  100% | Top-1 correct: True
+  Scores:    ['0.519', '0.475', '0.471', '0.438', '0.428']
+  Latency:   retrieval=92ms, generation=4616ms
+  Answer:    Based on the provided context, quantization improves throughput but not always latency due to **the roofline bottleneck shifting as operations become unquantized**.
+
+Here's the specific explanation fr...
+
+============================================================
+SUMMARY
+============================================================
+Queries run:         10
+Mean hit rate:       85%
+Top-1 accuracy:      80%
+By query type:
+  direct          : 100% hit rate (5 queries)
+  paraphrase      : 75% hit rate (2 queries)
+  cross-document  : 50% hit rate (1 queries)
+  abstract        : 75% hit rate (2 queries)
+
+Full results saved to ../data/results/02_rag_from_scratch_results.json
+
+Record summary numbers in phase12/notes/phase12-embeddings-analysis.md
