@@ -1,0 +1,266 @@
+{
+  "version": "1.0",
+  "description": "Phase 11 eval prompt set -- AI infrastructure technical content, bare topic format",
+  "total_prompts": 50,
+  "categories": [
+    "gpu_architecture",
+    "kernel_optimization",
+    "distributed_training",
+    "inference_serving",
+    "model_architecture",
+    "finetuning_alignment",
+    "agent_infrastructure"
+  ],
+  "prompts": [
+    {
+      "id": "gpu_001",
+      "category": "gpu_architecture",
+      "prompt": "Explain what arithmetic intensity is and why it determines whether a GPU kernel is memory-bandwidth bound or compute bound."
+    },
+    {
+      "id": "gpu_002",
+      "category": "gpu_architecture",
+      "prompt": "Describe the GPU memory hierarchy from registers to HBM and explain how latency and capacity trade off at each level."
+    },
+    {
+      "id": "gpu_003",
+      "category": "gpu_architecture",
+      "prompt": "Explain what the roofline model is and how you use it to decide what to optimize in a GPU kernel."
+    },
+    {
+      "id": "gpu_004",
+      "category": "gpu_architecture",
+      "prompt": "What is a CUDA warp and why does warp divergence hurt performance?"
+    },
+    {
+      "id": "gpu_005",
+      "category": "gpu_architecture",
+      "prompt": "Explain the difference between shared memory and HBM on a GPU and why this distinction matters for kernel design."
+    },
+    {
+      "id": "gpu_006",
+      "category": "gpu_architecture",
+      "prompt": "What is memory coalescing in CUDA and what happens to bandwidth utilization when access patterns are not coalesced?"
+    },
+    {
+      "id": "gpu_007",
+      "category": "gpu_architecture",
+      "prompt": "Explain SM occupancy -- what it measures, what limits it, and why maximizing it does not always improve performance."
+    },
+    {
+      "id": "kernel_001",
+      "category": "kernel_optimization",
+      "prompt": "Explain the tiling pattern in matrix multiplication -- what problem it solves and how it uses shared memory to reduce HBM round trips."
+    },
+    {
+      "id": "kernel_002",
+      "category": "kernel_optimization",
+      "prompt": "Why does naive attention have O(N squared) memory complexity and what specific algorithmic change does Flash Attention make to reduce this?"
+    },
+    {
+      "id": "kernel_003",
+      "category": "kernel_optimization",
+      "prompt": "Explain the online softmax trick used in Flash Attention -- what it computes and why it allows tiling without materializing the full attention matrix."
+    },
+    {
+      "id": "kernel_004",
+      "category": "kernel_optimization",
+      "prompt": "What is kernel fusion and why does a fused softmax outperform an unfused PyTorch implementation on memory-bound workloads?"
+    },
+    {
+      "id": "kernel_005",
+      "category": "kernel_optimization",
+      "prompt": "Explain what Triton is, how it differs from writing CUDA C directly, and what class of kernels it is best suited for."
+    },
+    {
+      "id": "kernel_006",
+      "category": "kernel_optimization",
+      "prompt": "Explain why INT4 quantization does not automatically produce 4x throughput over FP16 and what the Marlin kernel does differently to achieve near-theoretical speedup."
+    },
+    {
+      "id": "kernel_007",
+      "category": "kernel_optimization",
+      "prompt": "What is the difference between NF4 and standard INT4 quantization formats and why does NF4 produce better quality at the same bit width?"
+    },
+    {
+      "id": "dist_001",
+      "category": "distributed_training",
+      "prompt": "Explain Ring AllReduce step by step -- what each GPU sends, what it receives, and why bus bandwidth utilization approaches 100 percent as the ring size grows."
+    },
+    {
+      "id": "dist_002",
+      "category": "distributed_training",
+      "prompt": "What is the difference between data parallelism, tensor parallelism, and pipeline parallelism in distributed training?"
+    },
+    {
+      "id": "dist_003",
+      "category": "distributed_training",
+      "prompt": "Explain ZeRO Stage 1, 2, and 3 -- what each stage shards and what memory savings each provides relative to standard DDP."
+    },
+    {
+      "id": "dist_004",
+      "category": "distributed_training",
+      "prompt": "Why does NVLink bandwidth matter so much more than PCIe bandwidth for multi-GPU training, and at what cluster scale does interconnect become the binding constraint?"
+    },
+    {
+      "id": "dist_005",
+      "category": "distributed_training",
+      "prompt": "What is gradient checkpointing, what does it trade, and when is it the right choice versus increasing batch size?"
+    },
+    {
+      "id": "dist_006",
+      "category": "distributed_training",
+      "prompt": "Explain the KL penalty in RLHF training -- what it prevents and what happens to model behavior when it is set too low versus too high."
+    },
+    {
+      "id": "dist_007",
+      "category": "distributed_training",
+      "prompt": "What is mixed precision training, why is the forward pass run in BF16 while the optimizer state is kept in FP32, and what failure mode does this prevent?"
+    },
+    {
+      "id": "inf_001",
+      "category": "inference_serving",
+      "prompt": "Explain the KV cache -- what it stores, why it grows with sequence length, and what GPU memory constraint it creates at 100K context."
+    },
+    {
+      "id": "inf_002",
+      "category": "inference_serving",
+      "prompt": "What is PagedAttention and how does managing the KV cache like OS virtual memory increase effective batch size?"
+    },
+    {
+      "id": "inf_003",
+      "category": "inference_serving",
+      "prompt": "Explain the latency versus throughput tension in LLM inference serving and what workload characteristics determine which to optimize for."
+    },
+    {
+      "id": "inf_004",
+      "category": "inference_serving",
+      "prompt": "What is speculative decoding, when does it produce speedup, and what property of the draft model determines the acceptance rate?"
+    },
+    {
+      "id": "inf_005",
+      "category": "inference_serving",
+      "prompt": "Explain continuous batching in vLLM -- why it improves GPU utilization over static batching and what the tradeoff is."
+    },
+    {
+      "id": "inf_006",
+      "category": "inference_serving",
+      "prompt": "What is the prefill versus decode distinction in autoregressive generation and why do they have different hardware utilization profiles?"
+    },
+    {
+      "id": "inf_007",
+      "category": "inference_serving",
+      "prompt": "Explain AWQ quantization -- how it differs from naive weight quantization and why it preserves quality better at INT4 precision."
+    },
+    {
+      "id": "arch_001",
+      "category": "model_architecture",
+      "prompt": "Explain RoPE -- what problem it solves compared to learned absolute position embeddings and how encoding position as a rotation enables context length extrapolation."
+    },
+    {
+      "id": "arch_002",
+      "category": "model_architecture",
+      "prompt": "What is Grouped Query Attention, how does it differ from Multi-Head Attention, and what is the direct impact on KV cache size for a 70B model at 100K context?"
+    },
+    {
+      "id": "arch_003",
+      "category": "model_architecture",
+      "prompt": "Explain the Mixture of Experts architecture -- how routing works, what active parameter count means versus total parameter count, and what the load balancing problem is."
+    },
+    {
+      "id": "arch_004",
+      "category": "model_architecture",
+      "prompt": "What is SwiGLU and why does it produce better loss than GELU at the same parameter count?"
+    },
+    {
+      "id": "arch_005",
+      "category": "model_architecture",
+      "prompt": "Explain RMSNorm versus LayerNorm -- what computation RMSNorm removes, why quality is preserved, and where the inference speedup comes from."
+    },
+    {
+      "id": "arch_006",
+      "category": "model_architecture",
+      "prompt": "What do residual connections do in a transformer and why are they essential for training stability in deep networks?"
+    },
+    {
+      "id": "arch_007",
+      "category": "model_architecture",
+      "prompt": "Explain the Chinchilla scaling law -- what it says about the optimal ratio of model parameters to training tokens and what the practical implication is for training budget allocation."
+    },
+    {
+      "id": "arch_008",
+      "category": "model_architecture",
+      "prompt": "What is the MLP block in a transformer doing mechanistically and what is the current understanding of what information it stores?"
+    },
+    {
+      "id": "ft_001",
+      "category": "finetuning_alignment",
+      "prompt": "Explain the LoRA matrix decomposition -- what W plus BA means, why rank r determines the capacity of the update, and why this works for behavioral fine-tuning."
+    },
+    {
+      "id": "ft_002",
+      "category": "finetuning_alignment",
+      "prompt": "What is QLoRA and what specific combination of techniques allows fine-tuning a 70B model on a single A100 80GB?"
+    },
+    {
+      "id": "ft_003",
+      "category": "finetuning_alignment",
+      "prompt": "What is catastrophic forgetting in fine-tuning and why does LoRA reduce it compared to full parameter fine-tuning?"
+    },
+    {
+      "id": "ft_004",
+      "category": "finetuning_alignment",
+      "prompt": "Explain the Bradley-Terry preference model -- what it assumes about human preferences and how it produces a training loss for reward modeling."
+    },
+    {
+      "id": "ft_005",
+      "category": "finetuning_alignment",
+      "prompt": "Why did DPO largely replace PPO-based RLHF in practice -- what specific complexity and instability problems does DPO eliminate?"
+    },
+    {
+      "id": "ft_006",
+      "category": "finetuning_alignment",
+      "prompt": "Explain what the DPO loss function is doing -- what it increases, what it decreases, and how the reference model enforces the KL constraint implicitly."
+    },
+    {
+      "id": "ft_007",
+      "category": "finetuning_alignment",
+      "prompt": "What is reward hacking in RLHF and why does it happen even when the reward model was trained on genuine human preferences?"
+    },
+    {
+      "id": "agent_001",
+      "category": "agent_infrastructure",
+      "prompt": "Explain the ReAct pattern -- what explicit structure it adds to agent reasoning and why it reduces hallucination and wasted tool calls compared to unstructured generation."
+    },
+    {
+      "id": "agent_002",
+      "category": "agent_infrastructure",
+      "prompt": "What is RAG, what problem does it solve for LLMs with fixed training cutoffs, and what are the two components whose quality determines end-to-end RAG performance?"
+    },
+    {
+      "id": "agent_003",
+      "category": "agent_infrastructure",
+      "prompt": "Explain cosine similarity for embedding retrieval -- why the direction of an embedding vector encodes meaning while magnitude is normalized away."
+    },
+    {
+      "id": "agent_004",
+      "category": "agent_infrastructure",
+      "prompt": "What is HyDE in RAG retrieval, what query-document mismatch problem does it address, and what is the tradeoff of generating a hypothetical document before searching?"
+    },
+    {
+      "id": "agent_005",
+      "category": "agent_infrastructure",
+      "prompt": "Explain the four types of memory an agent has -- working, episodic, semantic, and procedural -- and what storage backend is appropriate for each."
+    },
+    {
+      "id": "agent_006",
+      "category": "agent_infrastructure",
+      "prompt": "What is prompt injection in agentic systems, why is it harder to defend against than SQL injection, and what is the defense-in-depth approach?"
+    },
+    {
+      "id": "agent_007",
+      "category": "agent_infrastructure",
+      "prompt": "Explain why a dedicated vector database is the wrong default storage choice for a multi-agent system that needs both similarity search and transactional state updates."
+    }
+  ]
+}
