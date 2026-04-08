@@ -1,0 +1,65 @@
+{
+  "Chroma": {
+    "single_writer_docs_per_sec": 1258.2604352518276,
+    "single_writer_elapsed_s": 0.08424329099943861,
+    "concurrent_writer_docs_per_sec": 1155.4140958163082,
+    "concurrent_writer_elapsed_s": 0.09174200001871213,
+    "concurrent_writer_errors": {},
+    "query_latency": {
+      "similarity": {
+        "p50": 0.54327049292624,
+        "p95": 0.674884027102962,
+        "p99": 0.7099123822990804,
+        "mean": 0.5558724189177155
+      },
+      "hybrid": {
+        "p50": 0.6359585095196962,
+        "p95": 0.7379401009529828,
+        "p99": 0.7880530686816201,
+        "mean": 0.6417951185721904
+      }
+    }
+  },
+  "pgvector/PG": {
+    "single_writer_docs_per_sec": 717.3849964104261,
+    "single_writer_elapsed_s": 0.14775887498399243,
+    "concurrent_writer_docs_per_sec": 665.5234522524833,
+    "concurrent_writer_elapsed_s": 0.15927312499843538,
+    "concurrent_writer_errors": {},
+    "query_latency": {
+      "similarity": {
+        "p50": 3.6956664989702404,
+        "p95": 6.497147551272062,
+        "p99": 7.702025576145386,
+        "mean": 4.010464079910889
+      },
+      "hybrid": {
+        "p50": 7.526354020228609,
+        "p95": 10.900746041443199,
+        "p99": 11.97754832624923,
+        "mean": 7.480469917645678
+      }
+    }
+  },
+  "pgvector/CRDB": {
+    "single_writer_docs_per_sec": 383.290463845675,
+    "single_writer_elapsed_s": 0.27655266696820036,
+    "concurrent_writer_docs_per_sec": 640.369401922825,
+    "concurrent_writer_elapsed_s": 0.1655294579686597,
+    "concurrent_writer_errors": {},
+    "query_latency": {
+      "similarity": {
+        "p50": 3.6767084966413677,
+        "p95": 3.8883044966496523,
+        "p99": 4.29699242056813,
+        "mean": 3.6959958216175437
+      },
+      "hybrid": {
+        "p50": 3.5204585001338273,
+        "p95": 3.6994169844547287,
+        "p99": 4.387267483398318,
+        "mean": 3.550680896732956
+      }
+    }
+  }
+}
