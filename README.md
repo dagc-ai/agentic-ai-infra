@@ -21,7 +21,7 @@ The capstone is a fully autonomous content engine: four specialized agents orche
 | 9 | Fine-Tuning: SFT, LoRA, QLoRA | ✅ Complete | QLoRA fine-tuned Llama 3.1 8B on 550 domain Q&A pairs in 5m10s on one A100 80GB, adapter 161MB (0.52% of params), final loss 1.533. Rank experiment r=4 to r=64: loss improves continuously (1.81 to 1.20), training time rank-invariant at ~310s. Fine-tuning corrected concrete hallucinations; introduced new failure mode from Socratic training data format. |
 | 10 | Alignment: RLHF, DPO, Reward Modeling | ✅ Complete | Reward model: 0.75 accuracy, 1.46 margin on HH-RLHF (5K pairs, Llama 3.2 1B base). DPO: 0.58 accuracy, 0.44 margin on 1948 pairs. LLM-as-judge counterintuitive finding: BASE scored highest (2.30) — SFT amplified confident hallucination (1.93), DPO marginal recovery (1.83). SFT+DPO scored lower than base; rubric design explains the contradiction. |
 | 11 | Evals: Measuring Model Behavior | ✅ Complete | 50-prompt task-specific eval set, 7 categories, 150 total responses scored. Calibration: judge vs. human r=0.861 (passes 0.75 threshold). Contamination test: 0/10 signals — hallucination is confabulation, not memorization. Clean two-by-two: fine-tuning improved style dimensions (mechanistic depth +0.72, audience calibration +0.48), degraded accuracy dimensions (technical accuracy -0.20, calibration -0.42). No variant averaged above 2.6/5 — Editor gate is required, not optional. |
-| 12 | RAG + Storage Architecture | ⬜ Queued | RAG pipeline built from scratch (no framework), three-way storage benchmark: Chroma vs. pgvector vs. CockroachDB under 4-agent concurrent write load, HyDE and reranking implemented and measured against baseline |
+|| 12 | RAG + Storage Architecture | ✅ Complete | MPNet selected over MiniLM on paraphrase bridging (+0.143). RAG from scratch: 85% hit rate, 80% top-1. HyDE: +15% hit rate, +10% top-1. Reranker rejected — domain mismatch cost 20 points of top-1 accuracy. RAGAS surfaced the critical failure: Query 7 hit rate 100%, answer relevancy 0.000 — chunking failure invisible to retrieval metrics. Storage benchmark: Chroma 1,258 doc/s but wrong choice; CockroachDB 1.67x concurrent write speedup (383 → 640 doc/s); pgvector/CRDB p99 tighter than Postgres despite no vector index (4.3ms vs 7.7ms). |
 | 13 | Tool Use and the ReAct Pattern | ⬜ Queued | Raw function calling with the Anthropic API, explicit ReAct thought/action/observation loop, stateful 5-step research agent, failure modes documented when tools fail or the model loops |
 | 14 | Agent Frameworks: LangGraph, OpenClaw, CrewAI | ⬜ Queued | LangGraph research agent with checkpointing, OpenClaw source dissection and custom content engine skill, CrewAI multi-agent content crew dry run, framework tradeoff comparison |
 | 15 | Production Agentic Infrastructure | ⬜ Queued | Full agent tracing in LangSmith/Langfuse, cost model per content engine run, retry/fallback/circuit breaker patterns, concurrent agent state load test — no lost updates under 4-agent write contention |
@@ -392,6 +392,131 @@ The contamination finding changes the remediation strategy. If hallucination wer
 Define the quality bar before building the system that must maintain it. The rubric calibrated here is not an afterthought — it is a load-bearing component of the capstone. An uncalibrated judge inside an autonomous feedback loop reinforces the failure modes it was supposed to catch. The calibration methodology (score 20 manually, compute Pearson r, identify divergence pattern, tighten rubric anchors) is the correct engineering response and takes under an hour. Most teams skip it entirely. The difference is the difference between an Editor agent that works and one that approves its own hallucinations.
 
 ---
+---
+
+## Phase 12 — RAG + Storage Architecture
+
+**Hardware:** M1 Pro, 16GB unified memory (all benchmarks local, all three backends running simultaneously)
+**Models:** all-MiniLM-L6-v2 (22M params), all-mpnet-base-v2 (110M params), ms-marco-MiniLM-L-6-v2 cross-encoder
+**Storage backends:** Chroma (in-process), PostgreSQL 16 + pgvector 0.8.2 (IVFFlat index), CockroachDB 26.1.2 + pgvector (sequential scan — vector indexing not yet supported in this version)
+**Eval framework:** RAGAS 0.4.3, GPT-4o-mini as judge
+**Corpus:** Phase 1-11 notes, 11 files, 106 chunks (full-stack-view synthesis document excluded — see Exercise 12.2)
+
+### Key Results
+
+**Exercise 12.1 — Embeddings From First Principles**
+
+Tested MiniLM (22M) and MPNet (110M) against three pair categories drawn from the Phase 1-11 corpus: within-group similarity, adversarial pairs (same term, different semantic context), and paraphrase pairs (different vocabulary, same meaning).
+
+| Metric | MiniLM | MPNet | Winner |
+|--------|--------|-------|--------|
+| Within-group similarity (Flash Attention) | 0.430 | 0.420 | Tie |
+| Paraphrase: "HBM round trips" vs "memory access overhead" | 0.510 | 0.653 | MPNet |
+| Adversarial: paper title vs Flash Attention description | 0.124 | 0.374 | MiniLM |
+| Cross-group separation ratio (FA vs Distributed Training) | 2.0x | 1.9x | Tie |
+
+Model selected: all-mpnet-base-v2. The paraphrase improvement (+0.143) outweighs the adversarial risk. Vocabulary variation between note prose and agent queries is the higher-frequency production failure mode. The adversarial result is a known risk to design around, not a reason to choose a weaker model.
+
+The 2x separation ratio between within-group and cross-group similarity means retrieval works but admits noise. At 5x+ the retrieval is clean. This gap established the chunking requirement for Exercise 12.2: each chunk must encode one coherent concept.
+
+**Exercise 12.2 — RAG From Scratch**
+
+Complete pipeline without any framework: fixed-size chunking (400 words, 50-word overlap), MPNet embedding, SimpleVectorStore (numpy dot product), top-5 retrieval, Claude Haiku generation. 10 queries across four categories.
+
+Note: full-stack-view synthesis document excluded from corpus. Initially included, it inflated retrieval scores by providing vocabulary-rich summaries that competed with primary sources and masked chunking failures. Test against primary sources only.
+
+| Query Type | Hit Rate | Top-1 Accuracy | Queries |
+|------------|----------|----------------|---------|
+| Direct | 100% | 100% | 5 |
+| Paraphrase | 75% | 50% | 2 |
+| Cross-document | 50% | 0% | 1 |
+| Abstract | 100% | 100% | 2 |
+| **Overall** | **85%** | **80%** | **10** |
+
+**Query 7 — the critical failure mode.** "Why did DPO replace PPO-based RLHF in practice?" — hit rate 100% (right source retrieved), generation answer: "The context does not contain this information." The explanation exists in the notes but was split across a chunk boundary by fixed-size chunking. Neither half was complete enough to answer. Hit rate showed success. The model correctly refused to hallucinate. The failure was invisible until RAGAS.
+
+**Query 4 — flat score distribution.** Top-5 scores ranged 0.504 to 0.477 — a 0.027 spread. Query vocabulary matched hardware architecture language as strongly as inference language. No clean separation. Target for HyDE in Exercise 12.4.
+
+**Exercise 12.3 — Storage Benchmark**
+
+Four metrics per backend: single-writer ingestion throughput, 4-concurrent-writer throughput, similarity query latency p50/p99, hybrid query latency p50/p99 (vector similarity + SQL predicate in one transaction).
+
+| Backend | Single Writer | 4 Concurrent Writers | Sim p50 | Sim p99 | Hybrid p50 | Hybrid p99 |
+|---------|-------------|---------------------|---------|---------|-----------|-----------|
+| Chroma | 1,258 doc/s | 1,155 doc/s | 0.5ms | 0.7ms | 0.6ms | 0.8ms |
+| pgvector/Postgres | 717 doc/s | 666 doc/s | 3.7ms | 7.7ms | 7.5ms | 12.0ms |
+| pgvector/CockroachDB | 383 doc/s | 640 doc/s | 3.7ms | 4.3ms | 3.5ms | 4.4ms |
+
+Key findings:
+
+**Chroma is fastest everywhere and the wrong choice for the capstone.** The 0.5ms vs 3.7ms gap is the cost of correctness. Chroma's hybrid "filter" runs post-retrieval in Python — at 106 chunks it looks like a real hybrid query. At 10 million chunks it retrieves thousands of candidates to filter down to 5. pgvector executes the SQL predicate inside the index scan.
+
+**CockroachDB p99 is tighter than Postgres despite no vector index.** Postgres similarity p99: 7.7ms. CockroachDB: 4.3ms. The IVFFlat index at 106 vectors hurts more than it helps — the corpus is too small. CockroachDB's consistent execution produces lower tail latency at this scale.
+
+**CockroachDB concurrent write speedup: 1.67x.** Single writer: 383 doc/s. Four concurrent writers: 640 doc/s. Postgres degraded under concurrency (0.93x). CockroachDB's distributed architecture parallelizes transaction processing across internal range partitioning — it gets faster under concurrent load rather than slower. This is the property that matters when four agents write to shared state simultaneously.
+
+Storage architecture decision tree:
+- Prototype, single agent, no complex predicates: Chroma
+- Single-node production with relational query requirements: pgvector/Postgres
+- Multi-agent concurrent writes, consistency under failure, horizontal scale: pgvector/CockroachDB
+
+The capstone is the third case.
+
+**Exercise 12.4 — Advanced RAG: HyDE + Reranking**
+
+Two retrieval improvements measured independently and combined against the Exercise 12.2 baseline.
+
+**HyDE:** Generate a hypothetical answer with Claude Haiku, embed that, search with the generated embedding. The hypothesis uses document vocabulary and lands in the right semantic neighborhood rather than sitting ambiguously between them.
+
+**Reranking:** Retrieve top-20 candidates with embedding similarity, score each (query, chunk) pair jointly with ms-marco-MiniLM cross-encoder, return top-5 from reranked results.
+
+| Method | Hit Rate | Top-1 Accuracy |
+|--------|----------|----------------|
+| Baseline | 85% | 80% |
+| HyDE | 100% | 90% |
+| Rerank | 85% | 60% |
+| HyDE + Rerank | 85% | 60% |
+
+HyDE fixed Query 4 exactly as predicted. The generated hypothesis — "Memory bandwidth constraints, rather than computational capacity, represent the primary limitation..." — used inference infrastructure vocabulary that landed cleanly in the right neighborhood.
+
+The reranker hurt top-1 accuracy from 80% to 60%. The ms-marco cross-encoder was trained on web search query-document pairs and penalized dense technical jargon. A domain-fine-tuned reranker would reverse this result. General rerankers can actively hurt retrieval quality on technical corpora.
+
+**Capstone decision: HyDE only, no reranker.** HyDE: +15% hit rate, +10% top-1. Reranker: flat hit rate, -20% top-1. The data makes the choice.
+
+**Exercise 12.5 — RAG Evaluation with RAGAS**
+
+Formal RAGAS evaluation on the same 10-query test set. Run twice to measure stability.
+
+| Metric | Run 1 | Run 2 | Notes |
+|--------|-------|-------|-------|
+| Faithfulness | 0.979 | 0.958 | Near-perfect, stable |
+| Answer relevancy | 0.552 | 0.722 | Variance from RAGAS internal sampling |
+| Context precision | 0.911 | 0.911 | Identical across runs |
+| Context recall | 0.950 | 0.950 | Identical across runs |
+
+Query 7 RAGAS breakdown:
+
+| Metric | Score | Interpretation |
+|--------|-------|----------------|
+| Hit rate | 100% | Right source retrieved |
+| Faithfulness | 1.000 | Model correctly refused to hallucinate |
+| Answer relevancy | 0.000 | Answer was useless — didn't address the question |
+| Context recall | 0.500 | Key information missing from retrieved chunks |
+
+Faithfulness 1.000 and answer relevancy 0.000 on the same query is the signature of a chunking failure: correct retrieval, incomplete chunk, correct refusal to hallucinate, useless answer. Hit rate cannot distinguish this from a success. RAGAS can.
+
+Answer relevancy variance (+0.170 between runs) reflects LLM sampling in the RAGAS evaluation prompt. Context precision and recall are stable. For production eval pipelines, run 3+ times and average the volatile metrics.
+
+### What This Means
+
+Every RAG framework is the Exercise 12.2 pipeline with abstractions. Building it from scratch means every framework abstraction is legible and every framework failure is diagnosable. The failure mode hierarchy is what matters for the capstone: chunking failures produce silent non-answers — the model retrieves correctly, refuses to hallucinate, and returns nothing useful. Without the Editor agent's eval gate these publish. This is why the eval harness was built in Phase 11 before the agents.
+
+The storage decision is the one the benchmark was designed to make visible. Chroma is fastest by every metric and the wrong choice when four agents write to shared state under consistency requirements. The 1.67x CockroachDB concurrent write improvement is the distributed SQL property in action — it gets faster under concurrent load rather than slower. The 3x ingestion gap vs. Chroma is the cost of that correctness.
+
+### Key Insight
+
+The most expensive mistake in a RAG pipeline is optimizing retrieval metrics while ignoring generation metrics. Query 7 had 100% hit rate and 0% answer relevancy. Every team that ships a RAG pipeline without RAGAS or an equivalent evaluation layer is measuring the wrong thing. Hit rate is necessary, not sufficient. The chunking decision — which most teams treat as a default parameter — is the actual retrieval architecture. Invest in chunking before tuning embeddings, index types, or retrieval strategies.
+---
 
 ## Notes
  
@@ -399,7 +524,7 @@ Define the quality bar before building the system that must maintain it. The rub
 - [Fine-Tuning Mental Model: SFT, LoRA, QLoRA](notes/fine-tuning-mental-model.md) — Phase 9 complete: how SFT/LoRA/QLoRA stack as layers not alternatives, QLoRA end-to-end on Llama 3.1 8B, rank sensitivity experiment r=4 to r=64 (no plateau on technical domain data), qualitative hallucination correction and new failure mode from Socratic training format
 - [Alignment Techniques: RLHF, DPO, Reward Modeling](notes/alignment-techniques.md) — Phase 10 complete: reward model training on HH-RLHF (0.75 accuracy, 1.46 margin), DPO on SFT adapter (0.58 accuracy, 0.44 margin), three-way qualitative comparison (BASE/SFT/DPO), LLM-as-judge scoring with counterintuitive BASE > SFT+DPO finding, failure modes: adapter stacking, DPOConfig API, eos_token_id list type
 - [Evals: Measuring Model Behavior](notes/evals-mental-model.md) — Phase 11 complete: contamination test (0/10 signals — hallucination is confabulation not memorization), rubric v1.1 calibrated to r=0.861 overall, 150 responses scored across 3 variants, clean two-by-two (fine-tuning improved style, degraded accuracy), Editor agent decision function defined and committed
-- [Storage Architecture for Agentic AI](notes/storage-architecture-decision.md) — Phase 12: embeddings from first principles, four types of agent memory and the right storage backend for each, why dedicated vector databases are the wrong default for production agents, pgvector hybrid queries, CockroachDB consistency guarantees under concurrent agent write load
+- [Storage Architecture for Agentic AI](notes/storage-architecture-decision.md) — Phase 12 complete: MPNet selected on empirical paraphrase data, RAG from scratch (85% hit rate baseline), HyDE +15%/+10% improvement, reranker rejected on domain mismatch, RAGAS Query 7 proof case (100% hit rate / 0% answer relevancy), storage benchmark across Chroma/pgvector/CockroachDB with concurrent write results
 - [Tool Use and the ReAct Pattern](notes/react-pattern.md) — Phase 13: raw function calling with the Anthropic API, the ReAct thought/action/observation loop, explicit state management across multi-turn agent workflows, failure modes when tools fail or the model loops
 - [Agent Framework Comparison: LangGraph, OpenClaw, CrewAI](notes/agent-framework-comparison.md) — Phase 14: agents as state machines (LangGraph), OpenClaw architecture dissection (persistent memory, skills system, context management), CrewAI multi-agent orchestration, when to choose each framework
 - [Production Agentic Infrastructure](notes/production-agentic-infra.md) — Phase 15: full agent tracing with LangSmith/Langfuse, cost modeling per agent run, retry/fallback/circuit breaker patterns, concurrent agent state under contention, prompt injection defense
@@ -411,10 +536,11 @@ Define the quality bar before building the system that must maintain it. The rub
  
 | Phase | Hardware | Provider | Cost |
 |-------|----------|----------|------|
-| 8 | MBP M5 Max 128GB (inspection + config) / A100 SXM4 80GB (Mixtral routing) | Local / RunPod | — |
+| 8 | A100 SXM4 80GB (Mixtral routing) | RunPod |
 | 9 | A100 SXM4 80GB | RunPod | ~$0.15 (5m10s training run) |
 | 10 | A100 SXM4 80GB | RunPod | ~$2.50 (reward model ~$2, DPO ~$0.50) |
 | 11 | A100 SXM4 80GB | RunPod | ~$1.50 (inference + 150 judge API calls) |
+| 12 | M1 Pro 16GB unified memory (all backends local) | Local | ~$0.50 (HyDE + RAGAS API calls) |
  
 ---
  
