@@ -19,8 +19,8 @@ The capstone is a fully autonomous content engine: four specialized agents orche
 |-------|-------|--------|------------|
 | 8 | Modern LLM Architecture for Agentic Workloads | ✅ Complete | GQA reduces KV cache 4x vs. MHA — at 128K context, batch=10: 172GB (GQA) vs. 687GB (MHA). MoE routing measured as uniform across all domain types (cosine similarity > 0.996 between code/math/language/tool-call). |
 | 9 | Fine-Tuning: SFT, LoRA, QLoRA | ✅ Complete | QLoRA fine-tuned Llama 3.1 8B on 550 domain Q&A pairs in 5m10s on one A100 80GB, adapter 161MB (0.52% of params), final loss 1.533. Rank experiment r=4 to r=64: loss improves continuously (1.81 to 1.20), training time rank-invariant at ~310s. Fine-tuning corrected concrete hallucinations; introduced new failure mode from Socratic training data format. |
-| 10 | Alignment: RLHF, DPO, Reward Modeling | ⬜ Queued | Reward model trained on preference pairs, PPO-based RLHF mechanics, DPO loss function and why it displaced PPO in practice, SFT vs. DPO qualitative comparison on 20 test prompts |
-| 11 | Evals: Measuring Model Behavior | ⬜ Queued | LLM-as-judge eval harness built from scratch, 50-prompt domain-specific test set, calibrated rubric for AI infrastructure content quality — becomes the Editor agent's decision function in Phase 16 |
+| 10 | Alignment: RLHF, DPO, Reward Modeling | ✅ Complete | Reward model: 0.75 accuracy, 1.46 margin on HH-RLHF (5K pairs, Llama 3.2 1B base). DPO: 0.58 accuracy, 0.44 margin on 1948 pairs. LLM-as-judge counterintuitive finding: BASE scored highest (2.30) — SFT amplified confident hallucination (1.93), DPO marginal recovery (1.83). SFT+DPO scored lower than base; rubric design explains the contradiction. |
+| 11 | Evals: Measuring Model Behavior | ✅ Complete | 50-prompt task-specific eval set, 7 categories, 150 total responses scored. Calibration: judge vs. human r=0.861 (passes 0.75 threshold). Contamination test: 0/10 signals — hallucination is confabulation, not memorization. Clean two-by-two: fine-tuning improved style dimensions (mechanistic depth +0.72, audience calibration +0.48), degraded accuracy dimensions (technical accuracy -0.20, calibration -0.42). No variant averaged above 2.6/5 — Editor gate is required, not optional. |
 | 12 | RAG + Storage Architecture | ⬜ Queued | RAG pipeline built from scratch (no framework), three-way storage benchmark: Chroma vs. pgvector vs. CockroachDB under 4-agent concurrent write load, HyDE and reranking implemented and measured against baseline |
 | 13 | Tool Use and the ReAct Pattern | ⬜ Queued | Raw function calling with the Anthropic API, explicit ReAct thought/action/observation loop, stateful 5-step research agent, failure modes documented when tools fail or the model loops |
 | 14 | Agent Frameworks: LangGraph, OpenClaw, CrewAI | ⬜ Queued | LangGraph research agent with checkpointing, OpenClaw source dissection and custom content engine skill, CrewAI multi-agent content crew dry run, framework tradeoff comparison |
@@ -220,13 +220,185 @@ The rank experiment overturned the default assumption. r=16 is reasonable for si
 The data pipeline is the actual competitive moat in enterprise fine-tuning. A single A100 80GB at $1.49/hr running a QLoRA job that costs under $0.15 and completes in five minutes is not a differentiator — it is table stakes. The curated, domain-specific, high-quality training dataset that took months and domain expertise to build is what competitors cannot replicate. A customer with 10 years of support tickets, analyst reports, or expert internal documentation has latent training signal that no foundation model provider can match. The question that wins the enterprise fine-tuning conversation is not "which model?" — it is "what does your data pipeline look like?"
  
 ---
- 
+
+## Phase 10 — Alignment: RLHF, DPO, Reward Modeling
+
+**Hardware:** A100 SXM4 80GB, CUDA 12.4.1, PyTorch 2.4.0+cu121, transformers 4.44.0, trl 0.9.6, bitsandbytes 0.46.1, RunPod
+**Models:** Llama 3.2 1B Instruct (reward model base), Llama 3.1 8B Instruct + Phase 9 SFT adapter (DPO target)
+**Stack note:** Full stack downgrade required from Phase 9 verified configuration. Transformers 5.x breaks 4-bit quantization on PyTorch 2.4. accelerate 1.x breaks NF4 quantization dispatch. Pin everything before running.
+
+### Key Results
+
+**Exercise 10.1 — Reward Model Training**
+
+Trained on 5,000 preference pairs from Anthropic HH-RLHF (160,800 total available). Bradley-Terry loss: `L = -log sigmoid(r_chosen - r_rejected)`. Base model replaced language model head with a randomly initialized scalar head — the `score.weight MISSING` warning at load is expected, not an error.
+
+| Metric | Value |
+|--------|-------|
+| Base model | Llama 3.2 1B Instruct |
+| Dataset | HH-RLHF, 5,000 pairs |
+| Final loss | 0.6445 |
+| Final accuracy | 0.75 |
+| Final reward margin | 1.4609 |
+| Training time | ~1 hour |
+| Estimated cost | ~$2 |
+
+Accuracy of 0.75 means the reward model correctly identifies the human-preferred response in 3 of 4 pairs (random baseline: 0.50). The reward margin of 1.46 is the more meaningful metric — it measures how confidently the model discriminates, not just whether it gets the direction right. Individual step accuracy bounced between 0.25 and 1.0 throughout training at batch size 4; the trend over many steps is what matters.
+
+**Exercise 10.2 — DPO Training**
+
+Starting point: Llama 3.1 8B in 4-bit NF4 with Phase 9 LoRA adapter (r=16). Dataset: 1,948 HH-RLHF preference pairs reformatted to (prompt, chosen, rejected) triples. `ref_model=None` in TRL 0.9.6 derives reference behavior by disabling/enabling the PEFT adapter rather than loading a second model copy — halves the memory requirement.
+
+| Metric | Value |
+|--------|-------|
+| Beta | 0.1 |
+| Learning rate | 5e-7 |
+| Dataset | HH-RLHF, 1,948 pairs (after filtering) |
+| Final train loss | 0.90 |
+| Final accuracy | 0.58 |
+| Final reward margin | 0.44 |
+| VRAM usage | 51GB / 80GB (64%) |
+| Training time | ~16 minutes |
+| Estimated cost | ~$0.50 |
+
+Critical hyperparameter: DPO learning rate must be ~5e-7, not SFT-scale 2e-4. SFT-scale learning rates overwrite base model capabilities rather than nudging behavioral tendencies. This is the most important difference between SFT and DPO training configuration.
+
+**Exercise 10.3 — Qualitative Three-Way Comparison**
+
+10 AI infrastructure prompts run against BASE, SFT-only (Phase 9), and SFT+DPO. Each variant loaded fresh from base to prevent adapter stacking.
+
+| Prompt Topic | BASE | SFT | DPO | Notes |
+|---|---|---|---|---|
+| GQA definition | Wrong (visual QA benchmark) | Wrong (visual QA benchmark) | Wrong (visual QA benchmark) | Training data gap — all three hallucinate identically |
+| Flash Attention | Wrong (sparse attention) | Correct O(N²) to O(N) | Correct, minor errors | SFT major improvement |
+| Ring AllReduce | Cookie analogy, incomplete | Correct two-phase algorithm | Correct + tree vs. ring tradeoff | SFT major improvement, DPO additive |
+| KV cache scaling | Generic DB caching | Correct, wrong tensor shape | Correct shape, cleaner | SFT major improvement |
+| DPO definition | Wrong (Differential Privacy) | Wrong (Data Poisoning) | Wrong (Data Poisoning) | Training data gap — all three hallucinate |
+| LoRA vs fine-tuning | Wrong acronym, vague | Correct mechanism, fabricated benchmarks | Correct, fewer fabrications | SFT clear improvement |
+
+SFT improvement is dramatic on domain-covered topics. DPO improvement is marginal and specific — 2,000 general helpfulness preference pairs applied to a domain-specific SFT adapter produces weak alignment signal. Topics absent from the 550 SFT pairs hallucinate identically across all three variants. Alignment cannot fix what fine-tuning did not teach.
+
+**Exercise 10.4 — LLM-as-Judge Scoring**
+
+Claude Sonnet scored all three variants on 10 prompts across three dimensions (technical accuracy, conciseness, hallucination avoidance).
+
+| Model | Technical Accuracy | Conciseness | Hallucination Avoidance | Mean |
+|-------|-------------------|-------------|------------------------|------|
+| BASE | 2.20 | 2.50 | 2.20 | 2.30 |
+| SFT | 2.40 | 2.20 | 1.20 | 1.93 |
+| DPO | 2.00 | 2.20 | 1.30 | 1.83 |
+
+The counterintuitive result: BASE scored highest overall. This is not evidence that training degraded quality — it reflects what each model was optimized for. Hallucination avoidance tells the real story: SFT taught the model to produce confident, specific responses, including when it had to fabricate specifics. DPO partially recovered hallucination avoidance (1.30 vs. 1.20) but the signal was weak. The judge correctly caught the GQA and DPO acronym hallucinations across all three variants, validating it as a reliable quality gate.
+
+### What This Means
+
+SFT teaches a style, not just knowledge. The model learned to produce confident, specific, technical prose with numbers. That style is valuable when the model knows the answer. It is dangerous when it does not — hallucinations now look identical to correct answers. DPO nudges but does not fix; it addressed neither knowledge gaps nor the confident hallucination amplification introduced by SFT. The binding constraint at the alignment layer is training data quality and coverage, not the sophistication of the alignment algorithm. You cannot DPO your way to domain expertise.
+
+### Key Insight
+
+Failure modes documented alongside successes are first-class deliverables. The GQA and DPO hallucinations that appeared identically across all three model variants are not a sign of a failed phase — they are a precise diagnosis. Those two topics were absent from the 550 SFT pairs. The fix is better training data, not more DPO. The Phase 11 rubric is calibrated to catch exactly these failure modes. The Phase 12 RAG layer is designed to fix the underlying knowledge gap. Every phase feeds the next.
+
+**Failure modes documented:**
+- Transformers 5.x incompatible with `eos_token_id` list type — fix: index with `[0]` defensively
+- DPOTrainer in trl 0.9.6 requires `DPOConfig`, not `TrainingArguments`
+- Adapter swapping on live PEFT model creates nested `model.model.model` hierarchy with silently wrong weights — always reload base model fresh for each adapter
+- HuggingFace Hub uploads include 336MB optimizer checkpoints by default — use `ignore_patterns` to exclude
+
+---
+
+## Phase 11 — Evals: Measuring Model Behavior Before You Build on It
+
+**Hardware:** A100 SXM4 80GB, CUDA 12.4, PyTorch 2.4.0+cu121, transformers 4.44.0, RunPod
+**Models evaluated:** Llama 3.1 8B BASE, Phase 9 SFT adapter (r=16), Phase 10 DPO adapter
+**Judge model:** claude-sonnet-4-20250514
+**Note:** 39% inference throughput penalty observed between BASE (18.1 tok/s) and adapter variants (11.0-11.1 tok/s) from PEFT overhead. Production fix: `merge_and_unload()` before serving.
+
+### Key Results
+
+**Contamination Test**
+
+10 original vs. rephrased prompt pairs. Average score delta: +0.15. Contamination signals: 0/10.
+
+Interpretation: the model is not pattern-matching surface form. Hallucination is confabulation from partial knowledge generated in real time, not memorized wrong answers. This is harder to fix than contamination — rephrase the question a dozen ways and you get the same confidently wrong answer every time. The correct remediation is RAG grounding and an Editor gate, not data decontamination.
+
+**Rubric Design and Calibration**
+
+Four dimensions targeting the Phase 10 failure mode (confident hallucination amplified by SFT):
+
+| Dimension | What It Catches |
+|-----------|----------------|
+| Technical Accuracy | Wrong definitions, wrong numbers, wrong mechanisms |
+| Calibration | Confident hallucination — correct confidence requires correct knowledge |
+| Mechanistic Depth | Vague explanations that sound correct but explain nothing |
+| Audience Calibration | Wrong depth for a practitioner audience |
+
+Deliberately excluded: length, fluency, formatting. These are what naive judges reward and what SFT optimized for. They are not correlated with technical correctness on niche AI infrastructure topics.
+
+Calibration: 20 responses manually scored and compared against judge scores.
+
+| Dimension | Pearson r | MAE | Status |
+|-----------|-----------|-----|--------|
+| technical_accuracy | 0.808 | 0.40 | PASS |
+| calibration | 0.829 | 0.40 | PASS |
+| mechanistic_depth | 0.720 | 0.55 | NEEDS REVIEW |
+| audience_calibration | 0.811 | 0.90 | PASS |
+| OVERALL | 0.861 | 0.562 | PASS |
+
+Judge scored higher than human on 17/20 responses (85% positive bias). Root cause: score-2 anchor on technical accuracy was too forgiving. Rubric v1.1 tightened: a response that gets the core definition wrong scores 2 or below on technical_accuracy regardless of how well the rest reads. Overall r=0.861 passes the 0.75 threshold — judge is trustworthy for autonomous Editor decisions.
+
+**Model Comparison: 50 Prompts, 3 Variants, 150 Total Responses**
+
+| Variant | Mean Score | Confident Hallucination Flags |
+|---------|-----------|-------------------------------|
+| BASE | 2.400 | 27/50 (54%) |
+| SFT | 2.520 | 37/50 (74%) |
+| DPO | 2.575 | 37/50 (74%) |
+
+Per-dimension breakdown:
+
+| Dimension | BASE | SFT | DPO | Direction |
+|-----------|------|-----|-----|-----------|
+| technical_accuracy | 2.020 | 1.820 | 1.920 | Fine-tuning made accuracy worse |
+| calibration | 2.460 | 2.040 | 2.060 | Fine-tuning made calibration worse |
+| mechanistic_depth | 2.040 | 2.720 | 2.760 | Fine-tuning helped significantly |
+| audience_calibration | 3.080 | 3.500 | 3.560 | Fine-tuning helped significantly |
+
+Clean two-by-two: fine-tuning improved the style dimensions and degraded the accuracy dimensions. The model learned to write like an expert without becoming one. SFT taught confident, structured, practitioner-appropriate phrasing — it did not teach the underlying technical facts, because those facts were sparse in 550 training pairs.
+
+Notable findings: SFT scored 1.964 on agent_infrastructure vs. BASE at 2.679 — the largest single-category regression. The SFT dataset had minimal agent infrastructure coverage; the model applied confident phrasing patterns from topics it knew to questions it knew least about. No variant averaged above 2.6/5. No variant is reliable enough to publish without an Editor gate.
+
+**Editor Agent Decision Function (Phase 16)**
+
+```
+APPROVE if:
+  technical_accuracy >= 3.0
+  AND calibration >= 3.0
+  AND mean_score >= 3.25
+  AND judge_flag != "confident_hallucination"
+REJECT otherwise — return dimension scores and reasoning to Writer
+Maximum 3 revision cycles before escalating to human review
+```
+
+Technical accuracy and calibration are weighted double in the approval gate — these are the dimensions where DPO is actively unreliable. Any confident_hallucination flag is automatic reject regardless of mean score.
+
+### What This Means
+
+The contradiction between Phase 10 (BASE scored highest at 2.30) and Phase 11 (BASE ranks lowest in mean at 2.40 but worst on style dimensions) resolves cleanly: Phase 10 used a generic helpfulness rubric that rewarded structured confident responses. Phase 11 explicitly penalizes confident hallucination. Same model, different rubric, opposite ranking. The rubric determines what you measure. Helpful-sounding and technically correct are not the same thing, and no benchmark distinguishes them automatically.
+
+The contamination finding changes the remediation strategy. If hallucination were contamination, the fix would be data decontamination. Since it is confabulation, the fix is giving the model access to correct information at inference time — which is exactly what Phase 12 builds.
+
+### Key Insight
+
+Define the quality bar before building the system that must maintain it. The rubric calibrated here is not an afterthought — it is a load-bearing component of the capstone. An uncalibrated judge inside an autonomous feedback loop reinforces the failure modes it was supposed to catch. The calibration methodology (score 20 manually, compute Pearson r, identify divergence pattern, tighten rubric anchors) is the correct engineering response and takes under an hour. Most teams skip it entirely. The difference is the difference between an Editor agent that works and one that approves its own hallucinations.
+
+---
+
 ## Notes
  
 - [Modern LLM Architecture: nanoGPT vs. Llama 3.1 8B](notes/modern-llm-architecture.md) — Phase 8 complete: architecture comparison table (all numbers from loaded model), KV cache arithmetic across MHA vs. GQA vs. MQA, MoE routing analysis v1 and v2
 - [Fine-Tuning Mental Model: SFT, LoRA, QLoRA](notes/fine-tuning-mental-model.md) — Phase 9 complete: how SFT/LoRA/QLoRA stack as layers not alternatives, QLoRA end-to-end on Llama 3.1 8B, rank sensitivity experiment r=4 to r=64 (no plateau on technical domain data), qualitative hallucination correction and new failure mode from Socratic training format
-- [Alignment Techniques: RLHF, DPO, Reward Modeling](notes/alignment-techniques.md) — Phase 10: the alignment gap, reward model training on preference pairs, PPO-based RLHF mechanics and why it's unstable at scale, DPO loss function and why it displaced PPO, Constitutional AI
-- [Evals: Measuring Model Behavior](notes/evals-mental-model.md) — Phase 11: why benchmarks are unreliable proxies for task performance, the contamination problem, LLM-as-judge methodology and calibration, building domain-specific eval rubrics, RAGAS for RAG pipelines
+- [Alignment Techniques: RLHF, DPO, Reward Modeling](notes/alignment-techniques.md) — Phase 10 complete: reward model training on HH-RLHF (0.75 accuracy, 1.46 margin), DPO on SFT adapter (0.58 accuracy, 0.44 margin), three-way qualitative comparison (BASE/SFT/DPO), LLM-as-judge scoring with counterintuitive BASE > SFT+DPO finding, failure modes: adapter stacking, DPOConfig API, eos_token_id list type
+- [Evals: Measuring Model Behavior](notes/evals-mental-model.md) — Phase 11 complete: contamination test (0/10 signals — hallucination is confabulation not memorization), rubric v1.1 calibrated to r=0.861 overall, 150 responses scored across 3 variants, clean two-by-two (fine-tuning improved style, degraded accuracy), Editor agent decision function defined and committed
 - [Storage Architecture for Agentic AI](notes/storage-architecture-decision.md) — Phase 12: embeddings from first principles, four types of agent memory and the right storage backend for each, why dedicated vector databases are the wrong default for production agents, pgvector hybrid queries, CockroachDB consistency guarantees under concurrent agent write load
 - [Tool Use and the ReAct Pattern](notes/react-pattern.md) — Phase 13: raw function calling with the Anthropic API, the ReAct thought/action/observation loop, explicit state management across multi-turn agent workflows, failure modes when tools fail or the model loops
 - [Agent Framework Comparison: LangGraph, OpenClaw, CrewAI](notes/agent-framework-comparison.md) — Phase 14: agents as state machines (LangGraph), OpenClaw architecture dissection (persistent memory, skills system, context management), CrewAI multi-agent orchestration, when to choose each framework
@@ -241,6 +413,8 @@ The data pipeline is the actual competitive moat in enterprise fine-tuning. A si
 |-------|----------|----------|------|
 | 8 | MBP M5 Max 128GB (inspection + config) / A100 SXM4 80GB (Mixtral routing) | Local / RunPod | — |
 | 9 | A100 SXM4 80GB | RunPod | ~$0.15 (5m10s training run) |
+| 10 | A100 SXM4 80GB | RunPod | ~$2.50 (reward model ~$2, DPO ~$0.50) |
+| 11 | A100 SXM4 80GB | RunPod | ~$1.50 (inference + 150 judge API calls) |
  
 ---
  
